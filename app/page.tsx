@@ -1,8 +1,51 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import Link from 'next/link';
 import Header from '@/components/Header';
+import GrainBackground from '@/components/GrainBackground';
+import Lenis from 'lenis';
+
+// Scroll reveal hook
+function useScrollReveal() {
+  const ref = useRef<HTMLDivElement>(null);
+  const [isVisible, setIsVisible] = useState(false);
+
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          setIsVisible(true);
+        }
+      },
+      { threshold: 0.1, rootMargin: '0px 0px -50px 0px' }
+    );
+
+    if (ref.current) observer.observe(ref.current);
+    return () => observer.disconnect();
+  }, []);
+
+  return { ref, isVisible };
+}
+
+// Scroll reveal wrapper component
+function ScrollReveal({ children, delay = 0 }: { children: React.ReactNode; delay?: number }) {
+  const { ref, isVisible } = useScrollReveal();
+  
+  return (
+    <div 
+      ref={ref}
+      className="transition-all duration-1000 ease-out"
+      style={{
+        opacity: isVisible ? 1 : 0,
+        transform: isVisible ? 'translateY(0)' : 'translateY(40px)',
+        transitionDelay: `${delay}ms`,
+      }}
+    >
+      {children}
+    </div>
+  );
+}
 
 // Animated counter component
 function Counter({ end, duration = 2000, suffix = '' }: { end: number; duration?: number; suffix?: string }) {
@@ -47,360 +90,348 @@ function SplitText({ children }: { children: string }) {
   return (
     <span className="split-text inline-block">
       {children.split('').map((char, i) => (
-        <span key={i} className="inline-block transition-all duration-300">{char === ' ' ? '\u00A0' : char}</span>
+        <span key={i} className="inline-block transition-all duration-300 hover:text-[var(--accent)] hover:-translate-y-1">{char === ' ' ? '\u00A0' : char}</span>
       ))}
     </span>
-  );
-}
-
-// Interactive logo text
-function LogoText() {
-  const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
-  const letters = ['G', 'E', 'N', 'R', '8'];
-  
-  return (
-    <span className="inline-flex">
-      {letters.map((letter, i) => (
-        <span
-          key={i}
-          className="inline-block transition-all duration-300 cursor-default"
-          style={{
-            transform: hoveredIndex !== null 
-              ? `translateY(${Math.sin((i - hoveredIndex) * 0.8) * (hoveredIndex === i ? -12 : -6)}px)`
-              : 'translateY(0)',
-            color: hoveredIndex !== null && Math.abs(i - hoveredIndex) <= 1 
-              ? 'var(--accent)' 
-              : 'inherit',
-          }}
-          onMouseEnter={() => setHoveredIndex(i)}
-          onMouseLeave={() => setHoveredIndex(null)}
-        >
-          {letter}
-        </span>
-      ))}
-    </span>
-  );
-}
-
-// Floating model card
-function FloatingCard({ name, type, delay, x, y }: { name: string; type: string; delay: number; x: number; y: number }) {
-  return (
-    <div 
-      className="absolute bg-[#141414] border border-[#222] px-4 py-3 opacity-0 animate-float-in"
-      style={{ 
-        left: `${x}%`, 
-        top: `${y}%`,
-        animationDelay: `${delay}s`,
-      }}
-    >
-      <p className="text-sm font-medium">{name}</p>
-      <p className="text-xs text-[var(--muted)]">{type}</p>
-    </div>
   );
 }
 
 export default function Home() {
-  const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
   const [isLoaded, setIsLoaded] = useState(false);
+  const [isHovering, setIsHovering] = useState(false);
+  const [isMuted, setIsMuted] = useState(true);
 
   useEffect(() => {
     setIsLoaded(true);
     
-    const handleMouseMove = (e: MouseEvent) => {
-      setMousePos({ x: e.clientX, y: e.clientY });
+    // Initialize smooth scroll
+    const lenis = new Lenis({
+      duration: 1.2,
+      easing: (t) => Math.min(1, 1.001 - Math.pow(2, -10 * t)),
+      smoothWheel: true,
+    });
+
+    function raf(time: number) {
+      lenis.raf(time);
+      requestAnimationFrame(raf);
+    }
+
+    requestAnimationFrame(raf);
+
+    return () => {
+      lenis.destroy();
     };
-    
-    window.addEventListener('mousemove', handleMouseMove);
-    return () => window.removeEventListener('mousemove', handleMouseMove);
   }, []);
 
   const models = [
-    { name: 'GPT-4o', type: 'Text', price: '0.02' },
-    { name: 'DALL·E 3', type: 'Image', price: '0.04' },
-    { name: 'Gemini Pro', type: 'Text', price: '0.01' },
-    { name: 'Ideogram', type: 'Image', price: '0.03' },
-    { name: 'Flux Pro', type: 'Image', price: '0.05' },
-    { name: 'Qwen VL', type: 'Video', price: '0.08' },
+    { name: 'GPT-Image', type: 'Image', price: '0.04' },
+    { name: 'Ideogram V3', type: 'Image', price: '0.07' },
+    { name: 'Qwen', type: 'Image', price: '0.03' },
+    { name: 'Sora 2', type: 'Video', price: '0.21' },
+    { name: 'Veo 3.1', type: 'Video', price: '0.36' },
   ];
 
   return (
     <>
+      <GrainBackground />
       <Header />
       <main className="min-h-screen overflow-hidden">
-        {/* Cursor follower */}
-        <div 
-          className="cursor-blob"
-          style={{ 
-            left: mousePos.x - 150, 
-            top: mousePos.y - 150,
-          }}
-        />
-      
-      {/* Hero */}
-      <section className="relative min-h-screen flex items-center px-6 md:px-12 lg:px-24">
-        {/* Grid overlay */}
-        <div className="absolute inset-0 opacity-[0.03]" style={{
-          backgroundImage: `
-            linear-gradient(var(--muted) 1px, transparent 1px),
-            linear-gradient(90deg, var(--muted) 1px, transparent 1px)
-          `,
-          backgroundSize: '100px 100px'
-        }} />
-
-        <div className="relative z-10 w-full max-w-7xl mx-auto grid lg:grid-cols-2 gap-16 items-center">
-          {/* Left */}
-          <div className={`${isLoaded ? 'animate-in' : 'opacity-0'}`}>
-            {/* Main heading */}
-            <h1 className="text-[clamp(4rem,12vw,9rem)] font-extrabold leading-[0.9] tracking-tight mb-6">
-              <span className="block"><LogoText /></span>
-              <span className="block text-[var(--muted)] text-[0.4em] font-medium mt-4">
-                AI Generation. <span className="text-[var(--accent)]">Pay Once.</span>
-              </span>
-            </h1>
-
-            {/* Description */}
-            <p className="text-xl text-[var(--muted)] mb-10 max-w-xl leading-relaxed animate-in delay-1">
-              No subscriptions. No commitments. Generate images and videos with the best AI models. Pay only for what you create with $GEN tokens.
-            </p>
-
-            {/* CTA buttons */}
-            <div className="flex flex-wrap gap-4 animate-in delay-2">
-              <Link 
-                href="/dashboard" 
-                className="group relative px-8 py-4 bg-[var(--accent)] text-[var(--bg)] font-semibold overflow-hidden rounded-full"
-              >
-                <span className="relative z-10">Start Generating</span>
-                <span className="absolute inset-0 bg-white transform translate-y-full transition-transform duration-300 group-hover:translate-y-0" />
-              </Link>
+        {/* Hero */}
+        <section className="pt-28 pb-8 px-4 md:px-8">
+          <div className="max-w-[1800px] mx-auto">
+            {/* Hero container with background */}
+            <div 
+              className="group relative rounded-xl overflow-hidden border border-[var(--dim)] transition-all duration-700 ease-out hover:border-[var(--dim)]/80"
+              onMouseEnter={() => setIsHovering(true)}
+              onMouseLeave={() => setIsHovering(false)}
+            >
+              {/* Background image */}
+              <img 
+                src="/herobackgroundsection.png"
+                alt=""
+                className="absolute inset-0 w-full h-full object-cover transition-transform duration-1000 ease-out group-hover:scale-[1.02] blur-[2px]"
+              />
               
-              <Link 
-                href="/docs" 
-                className="group relative px-8 py-4 border border-[var(--dim)] text-[var(--fg)] font-semibold overflow-hidden rounded-full"
-              >
-                <span className="relative z-10 transition-colors duration-300 group-hover:text-[var(--bg)]">Documentation</span>
-                <span className="absolute inset-0 bg-[var(--fg)] transform translate-y-full transition-transform duration-300 group-hover:translate-y-0" />
-              </Link>
-            </div>
-          </div>
-
-          {/* Right - Price display */}
-          <div className="hidden lg:flex flex-col items-end justify-center animate-in delay-3">
-            <div className="group text-right cursor-default">
-              <p className="text-xs text-[var(--muted)] mb-4 tracking-widest transition-colors group-hover:text-[var(--accent)] uppercase">Starting from</p>
-              <div className="relative">
-                <p className="text-[7rem] font-black leading-none text-[var(--fg)] transition-all duration-500 group-hover:text-[var(--accent)]">
-                  $0<span className="text-[3.5rem]">.01</span>
-                </p>
-                <div className="absolute -bottom-2 left-0 w-0 h-1 bg-[var(--accent)] transition-all duration-500 group-hover:w-full" />
-              </div>
-              <p className="text-sm text-[var(--muted)] mt-6 uppercase tracking-widest">per generation</p>
-            </div>
-          </div>
-        </div>
-
-        {/* Scroll indicator */}
-        <div className="absolute bottom-12 left-1/2 -translate-x-1/2 flex flex-col items-center gap-2">
-          <span className="text-xs text-[var(--muted)] tracking-widest uppercase">Scroll</span>
-          <div className="w-px h-12 bg-gradient-to-b from-[var(--muted)] to-transparent" />
-        </div>
-      </section>
-
-      {/* Stats section with counters */}
-      <section className="relative py-24 px-6 md:px-12 lg:px-24">
-        <div className="max-w-6xl mx-auto">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-12">
-            {[
-              { value: 12847, label: 'Generations', suffix: '+' },
-              { value: 6, label: 'AI Models', suffix: '' },
-              { value: 99, label: 'Uptime', suffix: '%' },
-              { value: 0.01, label: 'Min Price', suffix: ' USDC' },
-            ].map((stat, i) => (
-              <div key={i} className="group">
-                <div className="text-4xl md:text-5xl font-bold mb-2 transition-colors group-hover:text-[var(--accent)]">
-                  {stat.value === 0.01 ? (
-                    <span>$0.01</span>
-                  ) : (
-                    <Counter end={stat.value} suffix={stat.suffix} />
-                  )}
-                </div>
-                <div className="text-sm text-[var(--muted)] uppercase tracking-wider">{stat.label}</div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* Models Section */}
-      <section className="py-32 px-6 md:px-12 lg:px-24">
-        <div className="max-w-6xl mx-auto">
-          <div className="flex justify-between items-end mb-16">
-            <div>
-              <span className="text-xs text-[var(--accent)] tracking-widest uppercase">Models</span>
-              <h2 className="text-5xl md:text-6xl font-bold mt-2">
-                <SplitText>Choose your model</SplitText>
-              </h2>
-            </div>
-            <Link href="/dashboard" className="text-reveal text-[var(--muted)] hover:text-[var(--fg)]">
-              View all →
-            </Link>
-          </div>
-
-          <div className="space-y-0">
-            {models.map((model, i) => (
-              <Link 
-                key={i}
-                href="/dashboard"
-                className="group flex items-center justify-between py-5 transition-all hover:px-4 hover:bg-[var(--surface)] rounded-xl"
-              >
-                <div className="flex items-center gap-8">
-                  <span className="text-sm text-[var(--muted)] w-8">0{i + 1}</span>
-                  <span className="text-2xl font-semibold transition-colors group-hover:text-[var(--accent)]">{model.name}</span>
-                  <span className="px-3 py-1 text-xs border border-[var(--dim)] text-[var(--muted)] rounded-full">{model.type}</span>
-                </div>
-                <div className="flex items-center gap-8">
-                  <span className="text-[var(--muted)]">${model.price}</span>
-                  <span className="text-2xl transition-transform group-hover:translate-x-2 group-hover:text-[var(--accent)]">→</span>
-                </div>
-              </Link>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* How it works */}
-      <section className="py-32 px-6 md:px-12 lg:px-24">
-        <div className="max-w-6xl mx-auto">
-          <div className="mb-20">
-            <span className="text-xs text-[var(--accent)] tracking-widest uppercase">Process</span>
-            <h2 className="text-5xl md:text-6xl font-bold mt-2">How it works</h2>
-          </div>
-
-          <div className="grid md:grid-cols-3 gap-0">
-            {[
-              { num: '01', title: 'Connect', desc: 'Link your Solana wallet. Phantom, Solflare, or any compatible wallet works.' },
-              { num: '02', title: 'Generate', desc: 'Choose a model, enter your prompt. Pay per generation with $GEN or USDC.' },
-              { num: '03', title: 'Download', desc: 'Get your content instantly. No watermarks, full ownership, no strings.' },
-            ].map((step, i) => (
-              <div key={i} className="group relative p-8 border-l border-[var(--dim)] first:border-l-0 hover:bg-[var(--bg)] transition-colors">
-                <span className="text-7xl font-bold text-[var(--dim)] transition-colors group-hover:text-[var(--accent)] block mb-8">
-                  {step.num}
-                </span>
-                <h3 className="text-2xl font-semibold mb-4">{step.title}</h3>
-                <p className="text-[var(--muted)] leading-relaxed">{step.desc}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* Features */}
-      <section className="py-32 px-6 md:px-12 lg:px-24">
-        <div className="max-w-6xl mx-auto">
-          <div className="grid md:grid-cols-2 gap-4">
-            {[
-              { title: 'No Subscriptions', desc: 'Pay only for what you generate. No monthly fees, no unused credits.' },
-              { title: 'Instant Delivery', desc: 'Your content is generated and delivered within seconds.' },
-              { title: '$GEN Token', desc: 'Hold $GEN for discounts. The more you hold, the less you pay.' },
-              { title: 'Full Ownership', desc: 'Everything you generate belongs to you. Commercial use included.' },
-            ].map((feature, i) => (
-              <div 
-                key={i} 
-                className="group relative p-8 border border-[var(--dim)] bg-[#0d0d0d] cursor-default transition-all duration-500 hover:border-[var(--accent)] hover:bg-[#0f1a0d] rounded-2xl"
-              >
-                <span className="text-6xl font-bold text-[var(--dim)] absolute top-6 right-6 transition-colors duration-500 group-hover:text-[var(--accent)] opacity-20 group-hover:opacity-40">
-                  0{i + 1}
-                </span>
-                <div className="relative z-10">
-                  <h3 className="text-xl font-bold mb-3 transition-colors duration-300 group-hover:text-[var(--accent)]">
-                    {feature.title}
-                  </h3>
-                  <p className="text-[var(--muted)] leading-relaxed text-sm">
-                    {feature.desc}
+              {/* Content */}
+              <div className="relative z-10 grid grid-cols-1 lg:grid-cols-2 gap-8 p-8 md:p-12 lg:p-16 min-h-[500px]">
+                {/* Left - Text content */}
+                <div className={`flex flex-col justify-center transition-all duration-700 ${isLoaded ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}`}>
+                  <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold leading-tight mb-6">
+                    <span className="text-[var(--accent)] inline-flex overflow-hidden">
+                      <span className="inline-block">&gt;&nbsp;</span>
+                      {'The AI Generation'.split('').map((char, i) => (
+                        <span 
+                          key={i} 
+                          className="inline-block animate-slide-up-letter hover:text-white hover:-translate-y-1 hover:scale-110 transition-all duration-200 cursor-default"
+                          style={{ animationDelay: `${i * 0.03}s` }}
+                        >
+                          {char === ' ' ? '\u00A0' : char}
+                        </span>
+                      ))}
+                    </span>
+                    <br />
+                    <span className="text-[var(--fg)] inline-flex overflow-hidden">
+                      {'for Creators.'.split('').map((char, i) => (
+                        <span 
+                          key={i} 
+                          className="inline-block animate-slide-up-letter hover:text-[var(--accent)] hover:-translate-y-1 hover:scale-110 transition-all duration-200 cursor-default"
+                          style={{ animationDelay: `${0.5 + i * 0.03}s` }}
+                        >
+                          {char === ' ' ? '\u00A0' : char}
+                        </span>
+                      ))}
+                    </span>
+                  </h1>
+                  
+                  <p className="text-base text-[var(--muted)] leading-relaxed max-w-md mb-8">
+                    Access the best AI models without subscriptions. Pay only for what you create with $GEN tokens on Solana.
                   </p>
+                  
+                  <div className="flex flex-wrap gap-3">
+                    <Link
+                      href="/dashboard"
+                      className="group/btn relative inline-flex items-center gap-2 px-6 py-3 bg-[var(--accent)] text-[var(--bg)] font-medium rounded-xl overflow-hidden"
+                    >
+                      <span className="relative z-10 flex items-center gap-2">
+                        Start Generating
+                        <span>→</span>
+                      </span>
+                      <span className="absolute inset-0 bg-white translate-y-full group-hover/btn:translate-y-0 transition-transform duration-300 ease-out" />
+                    </Link>
+                    <Link
+                      href="/docs"
+                      className="group/btn relative inline-flex items-center px-6 py-3 bg-[var(--bg)] text-[var(--fg)] font-medium rounded-xl border border-[var(--dim)] overflow-hidden"
+                    >
+                      <span className="relative z-10 transition-colors duration-300 group-hover/btn:text-[var(--bg)]">Read docs</span>
+                      <span className="absolute inset-0 bg-white translate-y-full group-hover/btn:translate-y-0 transition-transform duration-300 ease-out" />
+                    </Link>
+                  </div>
+                </div>
+
+                {/* Right - Video */}
+                <div className={`flex items-center justify-center transition-all duration-700 delay-100 ${isLoaded ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}`}>
+                  <div className="relative w-full max-w-lg rounded-xl overflow-hidden border border-[var(--dim)]">
+                    <video 
+                      id="hero-video"
+                      autoPlay 
+                      loop 
+                      muted 
+                      playsInline
+                      className="w-full h-full object-cover"
+                    >
+                      <source src="/Picture a world where AI doesn't lock you into stupid subscriptions….mp4" type="video/mp4" />
+                    </video>
+                    <button
+                      onClick={() => {
+                        const video = document.getElementById('hero-video') as HTMLVideoElement;
+                        if (video) {
+                          video.muted = !video.muted;
+                          setIsMuted(video.muted);
+                        }
+                      }}
+                      className="absolute bottom-3 right-3 w-10 h-10 rounded-full bg-[var(--bg)]/80 backdrop-blur-sm border border-[var(--dim)] flex items-center justify-center text-[var(--fg)] hover:bg-[var(--bg)] transition-all"
+                    >
+                      {isMuted ? (
+                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
+                          <line x1="23" y1="9" x2="17" y2="15"></line>
+                          <line x1="17" y1="9" x2="23" y2="15"></line>
+                        </svg>
+                      ) : (
+                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
+                          <path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path>
+                        </svg>
+                      )}
+                    </button>
+                  </div>
                 </div>
               </div>
-            ))}
+            </div>
           </div>
-        </div>
-      </section>
+        </section>
 
-      {/* Bottom section wrapper - allows G8 to flow */}
-      <div className="relative">
-        {/* G8 Background - Large and flowing across sections */}
-        <div className="absolute inset-0 flex items-center justify-center pointer-events-none select-none" style={{ top: '-5%' }}>
-          <span className="text-[38vw] font-black leading-none text-[var(--fg)] opacity-[0.03]">G8</span>
-        </div>
+        {/* How it works */}
+        <section className="py-16 px-4 md:px-8">
+          <div className="max-w-[1400px] mx-auto">
+            <ScrollReveal>
+              <div className="mb-12">
+                <span className="text-xs text-[var(--accent)] tracking-widest uppercase">Process</span>
+                <h2 className="text-4xl md:text-5xl font-bold mt-2">How it works</h2>
+                <p className="text-[var(--muted)] mt-3">Get started in three simple steps</p>
+              </div>
+            </ScrollReveal>
 
-        {/* Marquee */}
-        <section className="py-12 overflow-hidden relative z-10">
-          <div className="marquee">
-            {[...Array(4)].map((_, i) => (
-              <div key={i} className="flex shrink-0">
-                {['GPT-4o', 'DALL·E 3', 'Gemini', 'Ideogram', 'Flux Pro', 'Qwen', 'Sora 2', 'Veo 3'].map((name, j) => (
-                  <span key={j} className="flex items-center mx-10 whitespace-nowrap">
-                    <span className="w-2 h-2 bg-[var(--accent)] mr-4" />
-                    <span className="text-xl font-medium">{name}</span>
-                  </span>
+            <div className="grid md:grid-cols-3 gap-4">
+              {[
+                { num: '1', title: 'Connect', desc: 'Link your Solana wallet. Phantom, Solflare, or any compatible wallet works.', pos: 'left' },
+                { num: '2', title: 'Generate', desc: 'Choose a model, enter your prompt. Pay per generation with $GEN or USDC.', pos: 'center' },
+                { num: '3', title: 'Download', desc: 'Get your content instantly. No watermarks, full ownership, no strings.', pos: 'right' },
+              ].map((step, i) => (
+                <div 
+                  key={i} 
+                  className="group relative rounded-xl overflow-hidden border border-[var(--dim)] hover:border-[var(--muted)] transition-all duration-500"
+                >
+                  {/* Background image - same image, different positions */}
+                  <div 
+                    className="absolute inset-0 transition-all duration-700 group-hover:scale-105 blur-[2px]"
+                    style={{
+                      backgroundImage: 'url(/ea60f6895611494c03045877c3b5683c_1765024581.png)',
+                      backgroundSize: '300% 100%',
+                      backgroundPosition: step.pos,
+                    }}
+                  />
+                  {/* Dark overlay for text readability */}
+                  <div className="absolute inset-0 bg-gradient-to-t from-[var(--bg)] via-[var(--bg)]/50 to-[var(--bg)]/20" />
+                  
+                  {/* Content */}
+                  <div className="relative z-10 p-8 min-h-[340px] flex flex-col">
+                    <span className="text-6xl font-bold text-[var(--accent)] mb-auto">
+                      {step.num}
+                    </span>
+                    <div>
+                      <h3 className="text-2xl font-semibold mb-3">{step.title}</h3>
+                      <p className="text-white/60 leading-relaxed text-sm">{step.desc}</p>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+
+
+        {/* Features */}
+        <section className="py-16 px-4 md:px-8">
+          <div className="max-w-[1400px] mx-auto">
+            <ScrollReveal>
+              <div className="mb-12">
+                <span className="text-xs text-[var(--accent)] tracking-widest uppercase">Features</span>
+                <h2 className="text-4xl md:text-5xl font-bold mt-2">Why GENR8</h2>
+                <p className="text-[var(--muted)] mt-3">Built for creators who value simplicity</p>
+              </div>
+            </ScrollReveal>
+
+            <div className="grid md:grid-cols-3 gap-4">
+              {[
+                { title: 'No Subscriptions', desc: 'Pay only for what you generate. No monthly fees, no unused credits.', pos: 'right' },
+                { title: 'Instant Delivery', desc: 'Your content is generated and delivered within seconds.', pos: 'center' },
+                { title: 'Full Ownership', desc: 'Everything you generate belongs to you. Commercial use included.', pos: 'left' },
+              ].map((feature, i) => (
+                <div 
+                  key={i} 
+                  className="group relative rounded-xl overflow-hidden border border-[var(--dim)] hover:border-[var(--muted)] transition-all duration-500"
+                >
+                  {/* Flip wrapper */}
+                  <div className="absolute inset-0" style={{ transform: 'scaleX(-1)' }}>
+                    {/* Background image - same image, different positions */}
+                    <div 
+                      className="absolute inset-0 transition-all duration-700 group-hover:scale-105 blur-[2px]"
+                      style={{
+                        backgroundImage: 'url(/1765030347698-wrnpvaau0ej.png)',
+                        backgroundSize: '300% 100%',
+                        backgroundPosition: feature.pos,
+                      }}
+                    />
+                  </div>
+                  {/* Dark overlay for text readability */}
+                  <div className="absolute inset-0 bg-gradient-to-t from-[var(--bg)] via-[var(--bg)]/50 to-[var(--bg)]/20" />
+                  
+                  {/* Content */}
+                  <div className="relative z-10 p-8 min-h-[340px] flex flex-col justify-end">
+                    <div>
+                      <h3 className="text-2xl font-semibold mb-3">{feature.title}</h3>
+                      <p className="text-white/60 leading-relaxed text-sm">{feature.desc}</p>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        {/* CTA Banner */}
+        <section className="py-20 px-4 md:px-8">
+          <div className="max-w-[1400px] mx-auto">
+            <ScrollReveal>
+              <div className="group relative rounded-xl overflow-hidden border border-[var(--dim)] hover:border-[var(--muted)] transition-all duration-500 min-h-[400px] flex items-center">
+                {/* Background image */}
+                <div 
+                  className="absolute inset-0 transition-transform duration-700 group-hover:scale-105 blur-[2px]"
+                  style={{
+                    backgroundImage: 'url(/1765030583940-2jekhrzwcle.png)',
+                    backgroundSize: 'cover',
+                    backgroundPosition: 'center',
+                  }}
+                />
+                {/* Gradient overlay */}
+                <div className="absolute inset-0 bg-gradient-to-r from-[var(--bg)] via-[var(--bg)]/80 to-transparent" />
+                
+                {/* Content */}
+                <div className="relative z-10 p-12 md:p-16 max-w-2xl">
+                  <span className="text-xs text-[var(--accent)] tracking-widest uppercase mb-4 block">Start Now</span>
+                  <h2 className="text-4xl md:text-5xl lg:text-6xl font-bold mb-6 leading-tight">
+                    <span className="text-[var(--fg)] inline-flex flex-wrap">
+                      {'Ready to'.split('').map((char, i) => (
+                        <span 
+                          key={i} 
+                          className="inline-block hover:text-[var(--accent)] hover:-translate-y-1 hover:scale-110 transition-all duration-200 cursor-default"
+                        >
+                          {char === ' ' ? '\u00A0' : char}
+                        </span>
+                      ))}
+                    </span>
+                    <br />
+                    <span className="text-[var(--accent)] inline-flex">
+                      {'Generate?'.split('').map((char, i) => (
+                        <span 
+                          key={i} 
+                          className="inline-block hover:text-white hover:-translate-y-1 hover:scale-110 transition-all duration-200 cursor-default"
+                        >
+                          {char}
+                        </span>
+                      ))}
+                    </span>
+                  </h2>
+                  <p className="text-[var(--muted)] text-lg mb-10 max-w-md">
+                    No subscriptions. No commitments. Connect your wallet and start creating.
+                  </p>
+                  <Link
+                    href="/dashboard"
+                    className="group/btn inline-flex items-center gap-3 px-8 py-4 bg-[var(--accent)] text-[var(--bg)] font-semibold rounded-xl overflow-hidden relative"
+                  >
+                    <span className="relative z-10 flex items-center gap-3">
+                      Launch App
+                      <span className="transition-transform group-hover/btn:translate-x-1">→</span>
+                    </span>
+                    <span className="absolute inset-0 bg-white translate-y-full group-hover/btn:translate-y-0 transition-transform duration-300" />
+                  </Link>
+                </div>
+              </div>
+            </ScrollReveal>
+          </div>
+        </section>
+
+        {/* Bottom section wrapper */}
+        <div className="relative">
+          {/* Footer */}
+          <footer className="py-16 px-6 md:px-12 lg:px-24 relative z-10">
+            <div className="max-w-6xl mx-auto flex flex-col md:flex-row justify-between items-center gap-8">
+              <div className="flex items-center gap-8">
+                <span className="text-xl font-bold">GENR8</span>
+                <span className="text-sm text-[var(--muted)]">© 2025</span>
+              </div>
+              <div className="flex gap-8">
+                {['Twitter', 'Discord', 'GitHub'].map((link, i) => (
+                  <a key={i} href="#" className="text-[var(--muted)] hover:text-[var(--fg)] transition-colors">
+                    {link}
+                  </a>
                 ))}
               </div>
-            ))}
-          </div>
-        </section>
-
-        {/* CTA */}
-        <section className="py-32 px-6 md:px-12 lg:px-24 relative z-10">
-          <div className="max-w-6xl mx-auto">
-            <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-12">
-              <div className="flex-1">
-                <p className="text-xs text-[var(--accent)] mb-6 tracking-widest uppercase">Start Now</p>
-                <h2 className="text-5xl md:text-7xl font-black leading-[0.95] mb-6">
-                  Ready to<br />
-                  <span className="text-[var(--accent)]">generate?</span>
-                </h2>
-                <p className="text-lg text-[var(--muted)] max-w-md">
-                  No credit card. No subscription. Connect wallet and create.
-                </p>
-              </div>
-              
-              <div className="flex flex-col items-start lg:items-end gap-6">
-                <Link 
-                  href="/dashboard" 
-                  className="group flex items-center gap-4 px-10 py-5 bg-[var(--accent)] text-[var(--bg)] text-lg font-bold transition-all hover:gap-6 rounded-full"
-                >
-                  <span>Launch App</span>
-                  <span className="text-xl">→</span>
-                </Link>
-                <div className="flex items-center gap-8 text-sm text-[var(--muted)]">
-                  <span className="flex items-center gap-2">
-                    <span className="w-1.5 h-1.5 bg-[var(--accent)] rounded-full" />
-                    Solana
-                  </span>
-                  <span>6+ Models</span>
-                  <span>$0.01</span>
-                </div>
-              </div>
             </div>
-          </div>
-        </section>
-
-        {/* Footer */}
-        <footer className="py-16 px-6 md:px-12 lg:px-24 relative z-10">
-        <div className="max-w-6xl mx-auto flex flex-col md:flex-row justify-between items-center gap-8">
-          <div className="flex items-center gap-8">
-            <span className="text-xl font-bold">GENR8</span>
-            <span className="text-sm text-[var(--muted)]">© 2024</span>
-          </div>
-          <div className="flex gap-8">
-            {['Twitter', 'Discord', 'GitHub'].map((link, i) => (
-              <a key={i} href="#" className="text-reveal text-[var(--muted)] hover:text-[var(--fg)]">
-                {link}
-              </a>
-            ))}
-          </div>
+          </footer>
         </div>
-      </footer>
-      </div>
-    </main>
+      </main>
     </>
   );
 }
