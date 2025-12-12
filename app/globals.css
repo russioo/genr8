@@ -1,0 +1,423 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --bg: #0a0a0a;
+  --fg: #ffffff;
+  --muted: #888888;
+  --dim: #333333;
+  --accent: #c8ff00;
+  --surface: #111111;
+  --radius: 12px;
+  --radius-sm: 8px;
+  --radius-lg: 16px;
+}
+
+* {
+  font-family: 'Manrope', -apple-system, BlinkMacSystemFont, sans-serif !important;
+}
+
+html.lenis, html.lenis body {
+  height: auto;
+}
+
+.lenis.lenis-smooth {
+  scroll-behavior: auto !important;
+}
+
+.lenis.lenis-smooth [data-lenis-prevent] {
+  overscroll-behavior: contain;
+}
+
+.lenis.lenis-stopped {
+  overflow: hidden;
+}
+
+.lenis.lenis-scrolling iframe {
+  pointer-events: none;
+}
+
+html {
+  scroll-padding-top: 100px;
+}
+
+body {
+  color: var(--fg);
+  background: var(--bg);
+  font-family: 'Manrope', -apple-system, BlinkMacSystemFont, sans-serif !important;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  cursor: default;
+}
+
+main {
+  background: transparent;
+  min-height: 100vh;
+}
+
+/* Background drift animations - more movement */
+@keyframes drift1 {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  25% { transform: translate(80px, 60px) scale(1.1); }
+  50% { transform: translate(40px, 120px) scale(0.95); }
+  75% { transform: translate(100px, 40px) scale(1.05); }
+}
+
+@keyframes drift2 {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  25% { transform: translate(-70px, -80px) scale(1.05); }
+  50% { transform: translate(-120px, -40px) scale(1.1); }
+  75% { transform: translate(-50px, -100px) scale(0.95); }
+}
+
+@keyframes drift3 {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  33% { transform: translate(60px, -70px) scale(1.08); }
+  66% { transform: translate(-80px, 60px) scale(0.92); }
+}
+
+@keyframes drift4 {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  50% { transform: translate(100px, 80px) scale(1.15); }
+}
+
+@keyframes drift5 {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  25% { transform: translate(-60px, 50px) scale(1.1); }
+  75% { transform: translate(70px, -60px) scale(0.9); }
+}
+
+.animate-drift-1 {
+  animation: drift1 15s ease-in-out infinite;
+}
+
+.animate-drift-2 {
+  animation: drift2 18s ease-in-out infinite;
+}
+
+.animate-drift-3 {
+  animation: drift3 12s ease-in-out infinite;
+}
+
+.animate-drift-4 {
+  animation: drift4 20s ease-in-out infinite;
+}
+
+.animate-drift-5 {
+  animation: drift5 16s ease-in-out infinite;
+}
+
+::selection {
+  background: var(--accent);
+  color: var(--bg);
+}
+
+::-webkit-scrollbar {
+  width: 3px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--accent);
+}
+
+/* Mono font for numbers/code */
+.mono {
+  font-family: 'JetBrains Mono', 'SF Mono', Monaco, monospace !important;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Text reveal animation */
+.text-reveal {
+  position: relative;
+  display: inline-block;
+}
+
+.text-reveal::after {
+  content: '';
+  position: absolute;
+  bottom: -2px;
+  left: 0;
+  width: 0;
+  height: 2px;
+  background: var(--accent);
+  transition: width 0.4s cubic-bezier(0.4, 0, 0, 1);
+}
+
+.text-reveal:hover::after {
+  width: 100%;
+}
+
+/* Magnetic hover */
+.magnetic {
+  transition: transform 0.3s cubic-bezier(0.2, 0, 0, 1);
+}
+
+/* Glitch text effect on hover */
+.glitch {
+  position: relative;
+}
+
+.glitch:hover {
+  animation: glitch 0.3s ease;
+}
+
+@keyframes glitch {
+  0% { transform: translate(0); }
+  20% { transform: translate(-2px, 2px); }
+  40% { transform: translate(-2px, -2px); }
+  60% { transform: translate(2px, 2px); }
+  80% { transform: translate(2px, -2px); }
+  100% { transform: translate(0); }
+}
+
+/* Smooth scale */
+.hover-scale {
+  transition: transform 0.5s cubic-bezier(0.2, 0, 0, 1);
+}
+
+.hover-scale:hover {
+  transform: scale(1.02);
+}
+
+/* Card tilt on hover */
+.card-tilt {
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+  transform-style: preserve-3d;
+}
+
+.card-tilt:hover {
+  transform: translateY(-8px) rotateX(2deg);
+  box-shadow: 0 20px 40px rgba(200, 255, 0, 0.1);
+}
+
+/* Animated border */
+.animated-border {
+  position: relative;
+  overflow: hidden;
+}
+
+.animated-border::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border: 1px solid transparent;
+  background: linear-gradient(90deg, transparent, var(--accent), transparent) border-box;
+  -webkit-mask: linear-gradient(#fff 0 0) padding-box, linear-gradient(#fff 0 0);
+  mask: linear-gradient(#fff 0 0) padding-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  animation: borderMove 3s linear infinite;
+}
+
+@keyframes borderMove {
+  0% { background-position: 0% 50%; }
+  100% { background-position: 200% 50%; }
+}
+
+/* Number counter animation */
+.counter {
+  display: inline-block;
+  transition: transform 0.2s ease;
+}
+
+.counter:hover {
+  transform: scale(1.1);
+  color: var(--accent);
+}
+
+/* Stagger fade in */
+@keyframes fadeSlideIn {
+  from {
+    opacity: 0;
+    transform: translateY(30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-in {
+  animation: fadeSlideIn 0.8s cubic-bezier(0.2, 0, 0, 1) forwards;
+  opacity: 0;
+}
+
+.delay-1 { animation-delay: 0.1s; }
+.delay-2 { animation-delay: 0.2s; }
+.delay-3 { animation-delay: 0.3s; }
+.delay-4 { animation-delay: 0.4s; }
+.delay-5 { animation-delay: 0.5s; }
+
+/* Pulse dot */
+.pulse-dot {
+  animation: pulse 2s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.5; transform: scale(1.2); }
+}
+
+/* Rotate on hover */
+.hover-rotate {
+  transition: transform 0.5s cubic-bezier(0.2, 0, 0, 1);
+}
+
+.hover-rotate:hover {
+  transform: rotate(90deg);
+}
+
+/* Marquee */
+@keyframes marquee {
+  0% { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
+}
+
+.marquee {
+  display: flex;
+  width: max-content;
+  animation: marquee 30s linear infinite;
+}
+
+.marquee:hover {
+  animation-play-state: paused;
+}
+
+/* Cursor blob */
+.cursor-blob {
+  position: fixed;
+  width: 300px;
+  height: 300px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(200,255,0,0.15) 0%, transparent 70%);
+  pointer-events: none;
+  z-index: 0;
+  transition: transform 0.1s ease-out;
+  mix-blend-mode: screen;
+}
+
+/* Wallet Adapter */
+.wallet-adapter-button,
+.wallet-adapter-button-trigger {
+  background: var(--accent) !important;
+  color: var(--bg) !important;
+  font-family: 'Manrope', -apple-system, BlinkMacSystemFont, sans-serif !important;
+  font-weight: 600 !important;
+  font-size: 12px !important;
+  padding: 6px 14px !important;
+  height: 32px !important;
+  line-height: 1 !important;
+  border-radius: 9999px !important;
+  transition: transform 0.2s ease, box-shadow 0.2s ease !important;
+}
+
+.wallet-adapter-button:hover:not([disabled]),
+.wallet-adapter-button-trigger:hover:not([disabled]) {
+  background: var(--accent) !important;
+  transform: translateY(-1px) !important;
+  box-shadow: 0 4px 12px rgba(200, 255, 0, 0.2) !important;
+}
+
+.wallet-adapter-modal-wrapper,
+.wallet-adapter-modal,
+.wallet-adapter-modal * {
+  background: var(--surface) !important;
+  font-family: 'Manrope', -apple-system, BlinkMacSystemFont, sans-serif !important;
+  border-radius: 12px !important;
+}
+
+.wallet-adapter-modal-title,
+.wallet-adapter-modal-list,
+.wallet-adapter-modal-list-more {
+  font-family: 'Manrope', -apple-system, BlinkMacSystemFont, sans-serif !important;
+}
+
+/* Split text animation */
+.split-text span {
+  display: inline-block;
+  transition: transform 0.3s ease, color 0.3s ease;
+}
+
+.split-text:hover span:nth-child(odd) {
+  transform: translateY(-4px);
+  color: var(--accent);
+}
+
+.split-text:hover span:nth-child(even) {
+  transform: translateY(4px);
+}
+
+/* Line draw animation */
+.line-draw {
+  position: relative;
+}
+
+.line-draw::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  height: 1px;
+  background: var(--accent);
+  transform: scaleX(0);
+  transform-origin: right;
+  transition: transform 0.5s cubic-bezier(0.4, 0, 0, 1);
+}
+
+.line-draw:hover::after {
+  transform: scaleX(1);
+  transform-origin: left;
+}
+
+/* Floating animation */
+@keyframes float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-10px); }
+}
+
+.float {
+  animation: float 4s ease-in-out infinite;
+}
+
+.animate-float {
+  animation: float 4s ease-in-out infinite;
+}
+
+/* Float in animation */
+@keyframes floatIn {
+  0% {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-float-in {
+  animation: floatIn 0.8s ease forwards, float 4s ease-in-out 0.8s infinite;
+}
+
+/* Letter slide up animation */
+@keyframes slideUpLetter {
+  0% {
+    opacity: 0;
+    transform: translateY(100%);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-slide-up-letter {
+  opacity: 0;
+  animation: slideUpLetter 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
