@@ -100,6 +100,7 @@ export default function Home() {
   const [isLoaded, setIsLoaded] = useState(false);
   const [isHovering, setIsHovering] = useState(false);
   const [isMuted, setIsMuted] = useState(true);
+  const [isPaused, setIsPaused] = useState(false);
 
   useEffect(() => {
     setIsLoaded(true);
@@ -153,10 +154,10 @@ export default function Home() {
               />
               
               {/* Content */}
-              <div className="relative z-10 grid grid-cols-1 lg:grid-cols-2 gap-8 p-8 md:p-12 lg:p-16 min-h-[500px]">
+              <div className="relative z-10 grid grid-cols-1 lg:grid-cols-2 gap-6 md:gap-8 p-5 md:p-12 lg:p-16 min-h-[auto] lg:min-h-[500px]">
                 {/* Left - Text content */}
                 <div className={`flex flex-col justify-center transition-all duration-700 ${isLoaded ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}`}>
-                  <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold leading-tight mb-6">
+                  <h1 className="text-3xl md:text-5xl lg:text-6xl font-bold leading-tight mb-4 md:mb-6">
                     <span className="text-[var(--accent)] inline-flex overflow-hidden">
                       <span className="inline-block">&gt;&nbsp;</span>
                       {'The AI Generation'.split('').map((char, i) => (
@@ -183,14 +184,14 @@ export default function Home() {
                     </span>
                   </h1>
                   
-                  <p className="text-base text-[var(--muted)] leading-relaxed max-w-md mb-8">
+                  <p className="text-sm md:text-base text-[var(--muted)] leading-relaxed max-w-md mb-6 md:mb-8">
                     Access the best AI models without subscriptions. Pay only for what you create with $GEN tokens on Solana.
                   </p>
                   
-                  <div className="flex flex-wrap gap-3">
+                  <div className="flex flex-col sm:flex-row gap-3">
                     <Link
                       href="/dashboard"
-                      className="group/btn relative inline-flex items-center gap-2 px-6 py-3 bg-[var(--accent)] text-[var(--bg)] font-medium rounded-xl overflow-hidden"
+                      className="group/btn relative inline-flex items-center justify-center gap-2 px-5 md:px-6 py-3 bg-[var(--accent)] text-[var(--bg)] font-medium rounded-xl overflow-hidden text-sm md:text-base"
                     >
                       <span className="relative z-10 flex items-center gap-2">
                         Start Generating
@@ -200,7 +201,7 @@ export default function Home() {
                     </Link>
                     <Link
                       href="/docs"
-                      className="group/btn relative inline-flex items-center px-6 py-3 bg-[var(--bg)] text-[var(--fg)] font-medium rounded-xl border border-[var(--dim)] overflow-hidden"
+                      className="group/btn relative inline-flex items-center justify-center px-5 md:px-6 py-3 bg-[var(--bg)] text-[var(--fg)] font-medium rounded-xl border border-[var(--dim)] overflow-hidden text-sm md:text-base"
                     >
                       <span className="relative z-10 transition-colors duration-300 group-hover/btn:text-[var(--bg)]">Read docs</span>
                       <span className="absolute inset-0 bg-white translate-y-full group-hover/btn:translate-y-0 transition-transform duration-300 ease-out" />
@@ -217,10 +218,29 @@ export default function Home() {
                       loop 
                       muted 
                       playsInline
-                      className="w-full h-full object-cover"
+                      className="w-full h-full object-cover cursor-pointer"
+                      onClick={(e) => {
+                        const video = e.currentTarget;
+                        if (video.paused) {
+                          video.play();
+                          setIsPaused(false);
+                        } else {
+                          video.pause();
+                          setIsPaused(true);
+                        }
+                      }}
                     >
-                      <source src="/Picture a world where AI doesn't lock you into stupid subscriptions….mp4" type="video/mp4" />
+                      <source src="/hero-video.mp4" type="video/mp4" />
                     </video>
+                    {isPaused && (
+                      <div className="absolute inset-0 flex items-center justify-center bg-black/30 pointer-events-none">
+                        <div className="w-16 h-16 rounded-full bg-[var(--bg)]/80 backdrop-blur-sm flex items-center justify-center">
+                          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
+                            <polygon points="5 3 19 12 5 21 5 3"></polygon>
+                          </svg>
+                        </div>
+                      </div>
+                    )}
                     <button
                       onClick={() => {
                         const video = document.getElementById('hero-video') as HTMLVideoElement;
@@ -252,17 +272,17 @@ export default function Home() {
         </section>
 
         {/* How it works */}
-        <section className="py-16 px-4 md:px-8">
+        <section className="py-10 md:py-16 px-4 md:px-8">
           <div className="max-w-[1400px] mx-auto">
             <ScrollReveal>
-              <div className="mb-12">
+              <div className="mb-8 md:mb-12">
                 <span className="text-xs text-[var(--accent)] tracking-widest uppercase">Process</span>
-                <h2 className="text-4xl md:text-5xl font-bold mt-2">How it works</h2>
-                <p className="text-[var(--muted)] mt-3">Get started in three simple steps</p>
+                <h2 className="text-3xl md:text-5xl font-bold mt-2">How it works</h2>
+                <p className="text-[var(--muted)] mt-2 md:mt-3 text-sm md:text-base">Get started in three simple steps</p>
               </div>
             </ScrollReveal>
 
-            <div className="grid md:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3 md:gap-4">
               {[
                 { num: '1', title: 'Connect', desc: 'Link your Solana wallet. Phantom, Solflare, or any compatible wallet works.', pos: 'left' },
                 { num: '2', title: 'Generate', desc: 'Choose a model, enter your prompt. Pay per generation with $GEN or USDC.', pos: 'center' },
@@ -285,12 +305,12 @@ export default function Home() {
                   <div className="absolute inset-0 bg-gradient-to-t from-[var(--bg)] via-[var(--bg)]/50 to-[var(--bg)]/20" />
                   
                   {/* Content */}
-                  <div className="relative z-10 p-8 min-h-[340px] flex flex-col">
-                    <span className="text-6xl font-bold text-[var(--accent)] mb-auto">
+                  <div className="relative z-10 p-6 md:p-8 min-h-[240px] md:min-h-[340px] flex flex-col">
+                    <span className="text-5xl md:text-6xl font-bold text-[var(--accent)] mb-auto">
                       {step.num}
                     </span>
                     <div>
-                      <h3 className="text-2xl font-semibold mb-3">{step.title}</h3>
+                      <h3 className="text-xl md:text-2xl font-semibold mb-2 md:mb-3">{step.title}</h3>
                       <p className="text-white/60 leading-relaxed text-sm">{step.desc}</p>
                     </div>
                   </div>
@@ -302,17 +322,17 @@ export default function Home() {
 
 
         {/* Features */}
-        <section className="py-16 px-4 md:px-8">
+        <section className="py-10 md:py-16 px-4 md:px-8">
           <div className="max-w-[1400px] mx-auto">
             <ScrollReveal>
-              <div className="mb-12">
+              <div className="mb-8 md:mb-12">
                 <span className="text-xs text-[var(--accent)] tracking-widest uppercase">Features</span>
-                <h2 className="text-4xl md:text-5xl font-bold mt-2">Why GENR8</h2>
-                <p className="text-[var(--muted)] mt-3">Built for creators who value simplicity</p>
+                <h2 className="text-3xl md:text-5xl font-bold mt-2">Why GENR8</h2>
+                <p className="text-[var(--muted)] mt-2 md:mt-3 text-sm md:text-base">Built for creators who value simplicity</p>
               </div>
             </ScrollReveal>
 
-            <div className="grid md:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3 md:gap-4">
               {[
                 { title: 'No Subscriptions', desc: 'Pay only for what you generate. No monthly fees, no unused credits.', pos: 'right' },
                 { title: 'Instant Delivery', desc: 'Your content is generated and delivered within seconds.', pos: 'center' },
@@ -338,9 +358,9 @@ export default function Home() {
                   <div className="absolute inset-0 bg-gradient-to-t from-[var(--bg)] via-[var(--bg)]/50 to-[var(--bg)]/20" />
                   
                   {/* Content */}
-                  <div className="relative z-10 p-8 min-h-[340px] flex flex-col justify-end">
+                  <div className="relative z-10 p-6 md:p-8 min-h-[200px] md:min-h-[340px] flex flex-col justify-end">
                     <div>
-                      <h3 className="text-2xl font-semibold mb-3">{feature.title}</h3>
+                      <h3 className="text-xl md:text-2xl font-semibold mb-2 md:mb-3">{feature.title}</h3>
                       <p className="text-white/60 leading-relaxed text-sm">{feature.desc}</p>
                     </div>
                   </div>
@@ -351,10 +371,10 @@ export default function Home() {
         </section>
 
         {/* CTA Banner */}
-        <section className="py-20 px-4 md:px-8">
+        <section className="py-10 md:py-20 px-4 md:px-8">
           <div className="max-w-[1400px] mx-auto">
             <ScrollReveal>
-              <div className="group relative rounded-xl overflow-hidden border border-[var(--dim)] hover:border-[var(--muted)] transition-all duration-500 min-h-[400px] flex items-center">
+              <div className="group relative rounded-xl overflow-hidden border border-[var(--dim)] hover:border-[var(--muted)] transition-all duration-500 min-h-[300px] md:min-h-[400px] flex items-center">
                 {/* Background image */}
                 <div 
                   className="absolute inset-0 transition-transform duration-700 group-hover:scale-105 blur-[2px]"
@@ -365,12 +385,12 @@ export default function Home() {
                   }}
                 />
                 {/* Gradient overlay */}
-                <div className="absolute inset-0 bg-gradient-to-r from-[var(--bg)] via-[var(--bg)]/80 to-transparent" />
+                <div className="absolute inset-0 bg-gradient-to-r from-[var(--bg)] via-[var(--bg)]/90 md:via-[var(--bg)]/80 to-[var(--bg)]/50 md:to-transparent" />
                 
                 {/* Content */}
-                <div className="relative z-10 p-12 md:p-16 max-w-2xl">
-                  <span className="text-xs text-[var(--accent)] tracking-widest uppercase mb-4 block">Start Now</span>
-                  <h2 className="text-4xl md:text-5xl lg:text-6xl font-bold mb-6 leading-tight">
+                <div className="relative z-10 p-6 md:p-12 lg:p-16 max-w-2xl">
+                  <span className="text-xs text-[var(--accent)] tracking-widest uppercase mb-3 md:mb-4 block">Start Now</span>
+                  <h2 className="text-3xl md:text-5xl lg:text-6xl font-bold mb-4 md:mb-6 leading-tight">
                     <span className="text-[var(--fg)] inline-flex flex-wrap">
                       {'Ready to'.split('').map((char, i) => (
                         <span 
@@ -393,12 +413,12 @@ export default function Home() {
                       ))}
                     </span>
                   </h2>
-                  <p className="text-[var(--muted)] text-lg mb-10 max-w-md">
+                  <p className="text-[var(--muted)] text-sm md:text-lg mb-6 md:mb-10 max-w-md">
                     No subscriptions. No commitments. Connect your wallet and start creating.
                   </p>
                   <Link
                     href="/dashboard"
-                    className="group/btn inline-flex items-center gap-3 px-8 py-4 bg-[var(--accent)] text-[var(--bg)] font-semibold rounded-xl overflow-hidden relative"
+                    className="group/btn inline-flex items-center gap-2 md:gap-3 px-6 md:px-8 py-3 md:py-4 bg-[var(--accent)] text-[var(--bg)] font-semibold rounded-xl overflow-hidden relative text-sm md:text-base"
                   >
                     <span className="relative z-10 flex items-center gap-3">
                       Launch App
@@ -415,15 +435,15 @@ export default function Home() {
         {/* Bottom section wrapper */}
         <div className="relative">
           {/* Footer */}
-          <footer className="py-16 px-6 md:px-12 lg:px-24 relative z-10">
-            <div className="max-w-6xl mx-auto flex flex-col md:flex-row justify-between items-center gap-8">
-              <div className="flex items-center gap-8">
-                <span className="text-xl font-bold">GENR8</span>
-                <span className="text-sm text-[var(--muted)]">© 2025</span>
+          <footer className="py-10 md:py-16 px-4 md:px-12 lg:px-24 relative z-10">
+            <div className="max-w-6xl mx-auto flex flex-col md:flex-row justify-between items-center gap-4 md:gap-8">
+              <div className="flex items-center gap-4 md:gap-8">
+                <span className="text-lg md:text-xl font-bold">GENR8</span>
+                <span className="text-xs md:text-sm text-[var(--muted)]">© 2025</span>
               </div>
-              <div className="flex gap-8">
+              <div className="flex gap-6 md:gap-8">
                 {['Twitter', 'Discord', 'GitHub'].map((link, i) => (
-                  <a key={i} href="#" className="text-[var(--muted)] hover:text-[var(--fg)] transition-colors">
+                  <a key={i} href="#" className="text-[var(--muted)] hover:text-[var(--fg)] transition-colors text-sm md:text-base">
                     {link}
                   </a>
                 ))}
