@@ -29,8 +29,6 @@ export default function PaymentModal({
   const [transactionSignature, setTransactionSignature] = useState('');
   const [tokenPrice, setTokenPrice] = useState<number | null>(null);
   const [genAmount, setPayperAmount] = useState<number>(0);
-  const [baseAmount, setBaseAmount] = useState<number>(0);
-  const [feeAmount, setFeeAmount] = useState<number>(0);
   const [priceSource, setPriceSource] = useState<string>('');
   const [isLoadingPrice, setIsLoadingPrice] = useState(true);
   const [showDetails, setShowDetails] = useState(false);
@@ -48,16 +46,14 @@ export default function PaymentModal({
       setTokenPrice(priceInfo.priceUSD);
       setPriceSource(priceInfo.source);
       
-      // Beregn payper amount med fee
+      // Calculate token amount
       const calculated = await calculateTokenAmount(amount);
-      setPayperAmount(calculated.tokenAmountWithFee);
-      setBaseAmount(calculated.baseAmount);
-      setFeeAmount(calculated.feeAmount);
+      setPayperAmount(calculated.tokenAmount);
       
       console.log('💰 Token price fetched:', priceInfo.priceUSD, priceInfo.source);
-      console.log('💳 Total amount:', Math.floor(calculated.tokenAmountWithFee), '$GEN');
+      console.log('💳 Total amount:', calculated.tokenAmount, '$GEN');
       
-      // Calculate USDC price (4x markup, no additional fee)
+      // Calculate USDC price (4x markup)
       const usdcAmount = amount * 4;
       setUsdcAmount(usdcAmount);
       console.log('💵 USDC amount:', usdcAmount.toFixed(3), 'USDC');
@@ -65,20 +61,11 @@ export default function PaymentModal({
       console.error('Error fetching token price:', error);
       // Fallback
       setTokenPrice(0.0001);
-      const base = amount * 10;
-      const fee = base * 0.1;
-      setBaseAmount(base);
-      setFeeAmount(fee);
-      setPayperAmount(base + fee);
-      
-      // USDC is 4x the base price (no additional fee)
-      const usdcAmount = amount * 4;
-      setUsdcAmount(usdcAmount);
-      
+      setPayperAmount(Math.floor(amount / 0.0001));
+      setUsdcAmount(amount * 4);
       setPriceSource('Fallback');
     } finally {
       setIsLoadingPrice(false);
-      console.log('✅ Price loading complete. isLoadingPrice set to FALSE');
     }
   };
 
@@ -381,22 +368,6 @@ export default function PaymentModal({
                 }`}
               >
                 <div className="space-y-1 border-t border-black/5 pt-2 text-sm">
-                  <div className="flex justify-between items-baseline py-2">
-                    <span className="text-black/30 font-light uppercase text-[11px] tracking-wider">Buyback (10%)</span>
-                    <span className="text-black/60 font-light">
-                      {paymentMethod === 'gen' 
-                        ? `${Math.floor(feeAmount)} $GEN` 
-                        : `$${(amount * 0.1).toFixed(3)} USD`}
-                    </span>
-                  </div>
-                  <div className="flex justify-between items-baseline py-2">
-                    <span className="text-black/30 font-light uppercase text-[11px] tracking-wider">We Receive</span>
-                    <span className="text-black/80 font-light">
-                      {paymentMethod === 'gen' 
-                        ? `${Math.floor(baseAmount)} $GEN` 
-                        : `${usdcAmount.toFixed(3)} USDC`}
-                    </span>
-                  </div>
                   <div className="flex justify-between items-baseline py-2">
                     <span className="text-black/30 font-light uppercase text-[11px] tracking-wider">Model</span>
                 <span className="text-black font-light">{modelName}</span>

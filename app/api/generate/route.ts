@@ -8,8 +8,6 @@ import { createQwenTask } from '@/lib/qwen-ai';
 import { generations } from '@/lib/storage';
 import { Connection, clusterApiUrl } from '@solana/web3.js';
 import { verifyUSDCPayment } from '@/lib/solana-payment';
-import { queueBuybackContribution } from '@/lib/buyback-queue';
-import { BUYBACK_FEE_PERCENTAGE } from '@/lib/token-price';
 import { trackPayment } from '@/lib/payment-tracking';
 
 // Store for pending payments (i produktion, brug database)
@@ -25,7 +23,7 @@ const pendingPayments = new Map<string, {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { model, prompt, type, options, paymentSignature, userWallet, paymentMethod, amountPaidUSD } = body;
+    const { model, prompt, type, options, paymentSignature, userWallet, paymentMethod, amountPaidUSD, skipPayment } = body;
 
     if (!model || !prompt || !type) {
       return NextResponse.json(
@@ -42,9 +40,14 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // ====== DEMO MODE - Skip payment ======
+    if (skipPayment) {
+      console.log('🎁 DEMO MODE: Skipping payment for', modelInfo.name);
+      // Continue to generation without payment verification
+    }
     // ====== HTTP 402 PAYMENT REQUIRED ======
     // Tjek om der er betalt (via payment signature)
-    if (!paymentSignature) {
+    else if (!paymentSignature) {
       // Generer generation ID til denne pending payment
       const generationId = `gen_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
       
@@ -84,53 +87,31 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Verify payment on-chain
+    // Payment verification (skip in demo mode)
+    let actualAmountPaid = modelInfo.price;
+    let effectivePaymentMethod: 'gen' | 'usdc' = 'gen';
+    
+    if (!skipPayment && paymentSignature) {
     console.log('💳 Verifying payment...');
     console.log('Payment Signature:', paymentSignature);
     
-    // RPC endpoint for payment verification
-    const rpcUrl = process.env.NEXT_PUBLIC_SOLANA_RPC_URL || 
-                   clusterApiUrl('mainnet-beta');
+      const rpcUrl = process.env.NEXT_PUBLIC_SOLANA_RPC_URL || clusterApiUrl('mainnet-beta');
     const connection = new Connection(rpcUrl, 'confirmed');
-    const actualAmountPaid = typeof amountPaidUSD === 'number' && !Number.isNaN(amountPaidUSD)
-      ? amountPaidUSD
-      : modelInfo.price;
-
-    const effectivePaymentMethod: 'gen' | 'usdc' = paymentMethod === 'usdc' ? 'usdc' : 'gen';
+      actualAmountPaid = typeof amountPaidUSD === 'number' && !Number.isNaN(amountPaidUSD) ? amountPaidUSD : modelInfo.price;
+      effectivePaymentMethod = paymentMethod === 'usdc' ? 'usdc' : 'gen';
 
     const isPaid = await verifyUSDCPayment(connection, paymentSignature, actualAmountPaid);
 
     if (!isPaid) {
       console.log('❌ Payment not verified');
-      return NextResponse.json(
-        { 
-          error: 'Payment verification failed',
-          message: 'Could not verify payment on Solana blockchain',
-        },
-        { status: 402 }
-      );
+        return NextResponse.json({ error: 'Payment verification failed', message: 'Could not verify payment on Solana blockchain' }, { status: 402 });
     }
-
     console.log('✅ Payment verified! Starting generation...');
-    
-    // Queue buyback contribution (10% af model prisen)
-    try {
-      const feeUSD = actualAmountPaid * (BUYBACK_FEE_PERCENTAGE / 100);
-
-      await queueBuybackContribution({
-        paymentSignature,
-        generationId: `generate-${paymentSignature}`,
-        amountUSD: feeUSD,
-        modelName: modelInfo.name,
-      });
-
-      console.log(`🧺 Buyback contribution queued: $${feeUSD.toFixed(4)} USD (${paymentSignature})`);
-    } catch (buybackQueueError) {
-      console.error('❌ Could not queue buyback contribution:', buybackQueueError);
-      // Buyback error should not stop generation
+    } else if (skipPayment) {
+      console.log('🎁 Demo mode - skipping payment verification');
     }
     
-    // ====== END HTTP 402 CHECK ======
+    // ====== GENERATION LOGIC ======
 
     // For GPT Image 1 (4o Image), create Kie.ai task immediately
     if (model === 'gpt-image-1') {
@@ -149,7 +130,7 @@ export async function POST(request: NextRequest) {
         
         console.log('4o Image task created:', taskId);
 
-        // Track payment info for potential refunds
+        // Track payment info
         console.log('🔍 Tracking payment - userWallet:', userWallet);
         console.log('🔍 Tracking payment - paymentSignature:', paymentSignature);
         console.log('🔍 Tracking payment - paymentMethod:', paymentMethod);
@@ -208,7 +189,7 @@ export async function POST(request: NextRequest) {
         
         console.log('Ideogram task created:', taskId);
 
-        // Track payment info for potential refunds
+        // Track payment info
         if (userWallet && paymentSignature) {
           trackPayment({
             taskId,
@@ -262,7 +243,7 @@ export async function POST(request: NextRequest) {
         
         console.log('Qwen task created:', taskId);
 
-        // Track payment info for potential refunds
+        // Track payment info
         if (userWallet && paymentSignature) {
           trackPayment({
             taskId,
@@ -309,7 +290,7 @@ export async function POST(request: NextRequest) {
         
         console.log('Sora 2 task created:', kieTaskId);
 
-        // Track payment info for potential refunds
+        // Track payment info
         if (userWallet && paymentSignature) {
           trackPayment({
             taskId: kieTaskId,
@@ -356,7 +337,7 @@ export async function POST(request: NextRequest) {
         
         console.log('Veo 3.1 task created:', veoTaskId);
 
-        // Track payment info for potential refunds
+        // Track payment info
         if (userWallet && paymentSignature) {
           trackPayment({
             taskId: veoTaskId,

@@ -225,60 +225,30 @@ export async function getTokenPriceUSD(): Promise<TokenPrice> {
   return cachedPrice;
 }
 
-// 10% buyback fee - used to buy back $GEN from the market
-export const BUYBACK_FEE_PERCENTAGE = 10;
-
 /**
  * Calculates how many $GEN tokens are needed for a given USD amount
- * User pays the number of tokens equivalent to the USD amount
- * We take 10% of the payment for buyback
  * 
  * Example: Model costs $0.03, token price is $0.0001
  * - User pays: $0.03 / $0.0001 = 300 GEN
- * - 10% buyback: 30 GEN
- * - We receive: 270 GEN
  */
 export async function calculateTokenAmount(usdAmount: number): Promise<{
   tokenAmount: number;
-  tokenAmountWithFee: number;
-  baseAmount: number;
-  feeAmount: number;
   tokenPrice: number;
   source: string;
 }> {
   const priceInfo = await getTokenPriceUSD();
   
-  console.log(`🔍 ===== PRICE DEBUG =====`);
-  console.log(`🔍 Token price used: $${priceInfo.priceUSD} (${priceInfo.source})`);
-  console.log(`🔍 Token price (scientific): ${priceInfo.priceUSD.toExponential()}`);
+  console.log(`🔍 Token price: $${priceInfo.priceUSD} (${priceInfo.source})`);
   console.log(`🔍 USD amount: $${usdAmount}`);
   
   // Calculate how many tokens are equivalent to the USD amount
-  // E.g: $0.03 / $0.0001 per token = 300 tokens
   const totalTokenAmountExact = usdAmount / priceInfo.priceUSD;
-  
-  // Round down to whole number (no decimals)
   const totalTokenAmount = Math.floor(totalTokenAmountExact);
   
-  console.log(`🔍 Calculation: $${usdAmount} / $${priceInfo.priceUSD} = ${totalTokenAmountExact.toFixed(2)} → ${totalTokenAmount} tokens (rounded)`);
-  
-  // 10% of payment goes to buyback (also rounded)
-  const feeAmount = Math.floor(totalTokenAmount * (BUYBACK_FEE_PERCENTAGE / 100));
-  
-  // What we actually receive (90% of payment)
-  const baseTokenAmount = totalTokenAmount - feeAmount;
-
-  console.log(`💵 Model price: $${usdAmount} USD`);
   console.log(`💰 User pays: ${totalTokenAmount} $GEN`);
-  console.log(`🔥 10% Buyback: ${feeAmount} $GEN`);
-  console.log(`✅ We receive: ${baseTokenAmount} $GEN`);
-  console.log(`🔍 ===== END DEBUG =====`);
 
   return {
-    tokenAmount: totalTokenAmount, // Total amount user pays
-    tokenAmountWithFee: totalTokenAmount,
-    baseAmount: baseTokenAmount, // What we receive (90%)
-    feeAmount: feeAmount, // Goes to buyback (10%)
+    tokenAmount: totalTokenAmount,
     tokenPrice: priceInfo.priceUSD,
     source: priceInfo.source,
   };

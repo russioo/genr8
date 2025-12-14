@@ -9,7 +9,7 @@ export default function Header() {
 
   return (
     <header className="fixed top-6 left-1/2 -translate-x-1/2 z-50 w-[calc(100%-3rem)] max-w-4xl">
-      <nav className="flex items-center justify-between px-6 py-3 bg-[#0a0a0a]/90 backdrop-blur-xl border border-[var(--dim)] rounded-full">
+      <nav className="flex items-center justify-between px-6 py-1 bg-[#0a0a0a]/90 backdrop-blur-xl rounded-full" style={{ border: '0.5px solid var(--dim)' }}>
         {/* Logo */}
         <Link href="/" className="group flex items-center gap-2">
           <span className="relative text-lg font-bold tracking-tight">

@@ -5,10 +5,7 @@ import { query4oImageStatus } from '@/lib/openai-image';
 import { queryIdeogramStatus } from '@/lib/ideogram-ai';
 import { queryQwenStatus } from '@/lib/qwen-ai';
 import { downloadAndUploadMultipleToSupabase } from '@/lib/supabase-helpers';
-import { getPaymentInfo, clearPaymentTracking } from '@/lib/payment-tracking';
-import { sendRefund } from '@/lib/refund';
-import { Connection, clusterApiUrl } from '@solana/web3.js';
-import { getModelById } from '@/lib/models';
+import { clearPaymentTracking } from '@/lib/payment-tracking';
 
 export async function GET(
   request: NextRequest,
@@ -18,20 +15,8 @@ export async function GET(
     const taskId = params.id;
     const { searchParams } = new URL(request.url);
     const model = searchParams.get('model');
-    
-    // Get payment info from headers (sent by frontend during polling)
-    const userWallet = request.headers.get('X-User-Wallet') || undefined;
-    const paymentMethod = (request.headers.get('X-Payment-Method') || 'gen') as 'gen' | 'usdc';
-    const amountPaidHeaderRaw = request.headers.get('X-Amount-Paid');
-    const amountPaidHeader = amountPaidHeaderRaw ? Number(amountPaidHeaderRaw) : undefined;
-
-    const modelInfo = model ? getModelById(model) : undefined;
-    const modelPrice = modelInfo?.price ?? 0.1;
 
     console.log('🔍 Checking task:', taskId, 'Model:', model);
-    console.log('💳 User wallet from headers:', userWallet);
-    console.log('💳 Payment method from headers:', paymentMethod);
-    console.log('💳 Amount paid from headers:', amountPaidHeader);
 
     let taskResponse;
     let isSora = false;
@@ -115,85 +100,16 @@ export async function GET(
           model: 'gpt-image-1',
         });
       } else if (data.status === 'CREATE_TASK_FAILED' || data.status === 'GENERATE_FAILED') {
-        // Failed - check if it's a content policy violation
         const errorMessage = data.errorMessage || '';
-        const isContentPolicyViolation = 
-          errorMessage.includes('content') || 
-          errorMessage.includes('policy') || 
-          errorMessage.includes('violation') ||
-          errorMessage.includes('flagged') ||
-          data.errorCode === '400';
-
         console.log('❌ 4o Image generation failed:', errorMessage);
-        console.log('🔍 Is content policy violation:', isContentPolicyViolation);
 
-        if (isContentPolicyViolation && userWallet) {
-          const paymentInfo = getPaymentInfo(taskId);
-          const paymentSignature = paymentInfo?.paymentSignature;
-          const paymentMethodUsed = paymentInfo?.paymentMethod ?? paymentMethod;
-          const trackedAmount = paymentInfo?.amount;
-          const headerAmount = typeof amountPaidHeader === 'number' && !Number.isNaN(amountPaidHeader) ? amountPaidHeader : undefined;
-          const resolvedAmount = (trackedAmount && trackedAmount > 0)
-            ? trackedAmount
-            : (headerAmount && headerAmount > 0)
-              ? headerAmount
-              : modelPrice;
-          const resolvedMethod: 'gen' | 'usdc' = paymentMethodUsed === 'usdc' ? 'usdc' : 'gen';
-
-          console.log('💸 Initiating refund for content policy violation...');
-          console.log('👤 User wallet:', userWallet);
-          console.log('💳 Payment method (resolved):', resolvedMethod);
-          console.log('💵 Amount to refund:', resolvedAmount);
-          
-          try {
-            const rpcUrl = process.env.NEXT_PUBLIC_SOLANA_RPC_URL || clusterApiUrl('mainnet-beta');
-            const connection = new Connection(rpcUrl, 'confirmed');
-
-            const refundResult = await sendRefund({
-              userWalletAddress: userWallet,
-              amount: resolvedAmount,
-              paymentMethod: resolvedMethod,
-              reason: `Content policy violation: ${errorMessage}`,
-              originalTxSignature: paymentSignature,
-            }, connection);
-
-            if (refundResult.success) {
-              console.log('✅ Refund successful:', refundResult.signature);
-              clearPaymentTracking(taskId);
-              
-              return NextResponse.json(
-                {
-                  success: false,
-                  error: 'Generation failed - Content policy violation',
-                  errorMessage: errorMessage,
-                  errorCode: data.errorCode,
-                  state: 'failed',
-                  refunded: true,
-                  refundSignature: refundResult.signature,
-                  refundAmount: refundResult.amountRefunded,
-                  refundToken: refundResult.token,
-                },
-                { status: 500 }
-              );
-            } else {
-              console.error('❌ Refund failed:', refundResult.error);
-            }
-          } catch (refundError: any) {
-            console.error('❌ Error processing refund:', refundError);
-          }
-        } else if (isContentPolicyViolation && !userWallet) {
-          console.warn('⚠️ Content policy violation but no user wallet in headers - cannot refund');
-        }
-
-        // Standard failed response (no refund or refund failed)
         return NextResponse.json(
           {
             success: false,
-            error: 'Content policy violation',
-            errorMessage: errorMessage || 'Your content was flagged as violating content policies.',
+            error: 'Generation failed',
+            errorMessage: errorMessage || 'Image generation failed.',
             errorCode: data.errorCode,
             state: 'failed',
-            refunded: false,
           },
           { status: 500 }
         );
@@ -382,77 +298,8 @@ export async function GET(
           },
         });
       } else if (data.state === 'fail') {
-        // Failed - check if it's a content policy violation
-        const failMsg = data.failMsg || '';
-        const isContentPolicyViolation = 
-          failMsg.includes('content') || 
-          failMsg.includes('policy') || 
-          failMsg.includes('violation') ||
-          failMsg.includes('flagged');
+        console.log('❌ Sora generation failed:', data.failMsg);
 
-        console.log('❌ Sora generation failed:', failMsg);
-        console.log('🔍 Is content policy violation:', isContentPolicyViolation);
-
-        // Hvis det er content policy violation OG vi har user wallet, refunder brugeren
-        if (isContentPolicyViolation && userWallet) {
-          const paymentInfo = getPaymentInfo(taskId);
-          const paymentSignature = paymentInfo?.paymentSignature;
-          const paymentMethodUsed = paymentInfo?.paymentMethod ?? paymentMethod;
-          const trackedAmount = paymentInfo?.amount;
-          const headerAmount = typeof amountPaidHeader === 'number' && !Number.isNaN(amountPaidHeader) ? amountPaidHeader : undefined;
-          const resolvedAmount = (trackedAmount && trackedAmount > 0)
-            ? trackedAmount
-            : (headerAmount && headerAmount > 0)
-              ? headerAmount
-              : modelPrice;
-          const resolvedMethod: 'gen' | 'usdc' = paymentMethodUsed === 'usdc' ? 'usdc' : 'gen';
-
-          console.log('💸 Initiating refund for content policy violation...');
-          console.log('👤 User wallet:', userWallet);
-          console.log('💳 Payment method (resolved):', resolvedMethod);
-          console.log('💵 Amount to refund:', resolvedAmount);
-          
-          try {
-            const rpcUrl = process.env.NEXT_PUBLIC_SOLANA_RPC_URL || clusterApiUrl('mainnet-beta');
-            const connection = new Connection(rpcUrl, 'confirmed');
-
-            const refundResult = await sendRefund({
-              userWalletAddress: userWallet,
-              amount: resolvedAmount,
-              paymentMethod: resolvedMethod,
-              reason: `Content policy violation: ${failMsg}`,
-              originalTxSignature: paymentSignature,
-            }, connection);
-
-            if (refundResult.success) {
-              console.log('✅ Refund successful:', refundResult.signature);
-              clearPaymentTracking(taskId);
-              
-              return NextResponse.json(
-                {
-                  success: false,
-                  error: 'Generation failed - Content policy violation',
-                  failMsg: failMsg,
-                  failCode: data.failCode,
-                  state: 'failed',
-                  refunded: true,
-                  refundSignature: refundResult.signature,
-                  refundAmount: refundResult.amountRefunded,
-                  refundToken: refundResult.token,
-                },
-                { status: 500 }
-              );
-            } else {
-              console.error('❌ Refund failed:', refundResult.error);
-            }
-          } catch (refundError: any) {
-            console.error('❌ Error processing refund:', refundError);
-          }
-        } else if (isContentPolicyViolation && !userWallet) {
-          console.warn('⚠️ Content policy violation but no user wallet in headers - cannot refund');
-        }
-
-        // Standard failed response (no refund or refund failed)
         return NextResponse.json(
           {
             success: false,

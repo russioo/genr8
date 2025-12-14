@@ -28,7 +28,7 @@ export default function AboutPage() {
               { title: 'Pay Per Use', desc: 'Only pay for what you generate. No monthly fees, no wasted credits.' },
               { title: 'Top Models', desc: 'Access Sora 2, Veo 3.1, GPT-Image, Ideogram, and Qwen in one place.' },
               { title: 'On-Chain', desc: 'All payments verified on Solana. Transparent and trustless.' },
-              { title: 'Auto Refunds', desc: 'Generation failed? Automatic refund to your wallet. No tickets.' },
+              { title: 'Instant Access', desc: 'Connect your wallet and start generating immediately. No sign-up needed.' },
             ].map((item) => (
               <div key={item.title} className="bg-[#141414] p-8">
                 <h3 className="text-xl font-semibold mb-3">{item.title}</h3>
