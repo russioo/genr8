@@ -198,7 +198,7 @@ export default function DemoDashboard() {
                   );
                 }
                 
-                const metadata: DemoMessage['metadata'] = message.metadata || {};
+                const metadata = message.metadata;
                 
                 // Payment processing
                 if (metadata?.type === 'payment' && metadata?.status === 'processing') {
@@ -234,7 +234,7 @@ export default function DemoDashboard() {
                 if (metadata?.type === 'generating') {
                   // Hide if result exists after this message
                   const hasResult = messages.slice(index + 1).some(m => 
-                    m.metadata?.type === 'generation' || m.metadata?.type === 'error'
+                    m.metadata?.type === 'generation'
                   );
                   if (hasResult) return null;
                   return (
