@@ -198,10 +198,10 @@ export default function DemoDashboard() {
                   );
                 }
                 
-                const metadata = message.metadata || {};
+                const metadata: DemoMessage['metadata'] = message.metadata || {};
                 
                 // Payment processing
-                if (metadata.type === 'payment' && metadata.status === 'processing') {
+                if (metadata?.type === 'payment' && metadata?.status === 'processing') {
                   // Hide if confirmed exists after this message
                   const hasConfirmed = messages.slice(index + 1).some(m => 
                     m.metadata?.type === 'payment' && m.metadata?.status === 'confirmed'
@@ -219,7 +219,7 @@ export default function DemoDashboard() {
                 }
                 
                 // Payment confirmed
-                if (metadata.type === 'payment' && metadata.status === 'confirmed') {
+                if (metadata?.type === 'payment' && metadata?.status === 'confirmed') {
                   return (
                     <div key={message.id} className="flex justify-start">
                       <div className="bg-green-500/10 border border-green-500/30 rounded-2xl px-5 py-3 flex items-center gap-3">
@@ -231,7 +231,7 @@ export default function DemoDashboard() {
                 }
                 
                 // Generating
-                if (metadata.type === 'generating') {
+                if (metadata?.type === 'generating') {
                   // Hide if result exists after this message
                   const hasResult = messages.slice(index + 1).some(m => 
                     m.metadata?.type === 'generation' || m.metadata?.type === 'error'
@@ -247,7 +247,7 @@ export default function DemoDashboard() {
                             ) : (
                               <div className="w-2 h-2 rounded-full bg-green-500" />
                             )}
-                            <span className="text-sm text-white">{metadata.modelName}</span>
+                            <span className="text-sm text-white">{metadata?.modelName}</span>
                           </div>
                           {isGenerating ? (
                             <span className="text-sm text-[#aaa] tabular-nums">{elapsedSeconds}s</span>
@@ -270,19 +270,19 @@ export default function DemoDashboard() {
                 }
                 
                 // Generated image
-                if (metadata.type === 'generation') {
+                if (metadata?.type === 'generation') {
                   return (
                     <div key={message.id} className="flex justify-start">
                       <div className="max-w-sm">
                         <div className="rounded-2xl overflow-hidden bg-[#111] border border-[#222] group">
                           <div className="relative">
-                            <img src={metadata.imageUrl} alt="Demo generation" className="w-full" />
+                            <img src={metadata?.imageUrl} alt="Demo generation" className="w-full" />
                             <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-all duration-300 flex items-center justify-center opacity-0 group-hover:opacity-100">
                               <span className="text-xs text-white font-medium">Demo Image</span>
                             </div>
                           </div>
                           <div className="px-4 py-3 flex items-center justify-between">
-                            <span className="text-xs text-[#aaa]">{metadata.modelName}</span>
+                            <span className="text-xs text-[#aaa]">{metadata?.modelName}</span>
                             <span className="text-[8px] text-[#666] uppercase">Demo</span>
                           </div>
                         </div>
