@@ -9,7 +9,7 @@ export default function Header() {
 
   return (
     <header className="fixed top-6 left-1/2 -translate-x-1/2 z-50 w-[calc(100%-3rem)] max-w-4xl">
-      <nav className="flex items-center justify-between px-6 py-1 bg-[#0a0a0a]/90 backdrop-blur-xl rounded-full" style={{ border: '0.5px solid var(--dim)' }}>
+      <nav className="flex items-center justify-between px-6 py-1 bg-[#0a0a0a]/80 backdrop-blur-2xl rounded-full shadow-2xl shadow-black/50" style={{ border: '0.5px solid var(--dim)' }}>
         {/* Logo */}
         <Link href="/" className="group flex items-center gap-2">
           <span className="relative text-lg font-bold tracking-tight">
@@ -22,7 +22,7 @@ export default function Header() {
         <div className="hidden md:flex items-center gap-6">
           {[
             { href: '/dashboard', label: 'Dashboard' },
-            { href: '/#models', label: 'Models' },
+            { href: '/demo', label: 'Demo' },
             { href: '/docs', label: 'Docs' },
           ].map((link) => (
             <Link

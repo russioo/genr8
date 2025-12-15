@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import './globals.css';
 import { SolanaWalletProvider } from '@/components/WalletProvider';
+import VantaBackground from '@/components/VantaBackground';
 
 export const metadata: Metadata = {
   title: 'GENR8 - AI Generation Without Subscriptions',
@@ -27,6 +28,7 @@ export default function RootLayout({
         <script src="https://cdn.jsdelivr.net/npm/vanta@latest/dist/vanta.fog.min.js"></script>
       </head>
       <body>
+        <VantaBackground />
         <SolanaWalletProvider>
           {children}
         </SolanaWalletProvider>

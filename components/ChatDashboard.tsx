@@ -11,11 +11,6 @@ import ResultDisplay from '@/components/ResultDisplay';
 import GenerationProgress from '@/components/GenerationProgress';
 import { sendUSDCPayment } from '@/lib/solana-payment';
 
-declare global {
-  interface Window {
-    VANTA: any;
-  }
-}
 
 type Chat = {
   id: string;
@@ -100,8 +95,6 @@ export default function ChatDashboard() {
 
   const modelMenuRef = useRef<HTMLDivElement | null>(null);
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
-  const vantaRef = useRef<HTMLDivElement | null>(null);
-  const vantaEffect = useRef<any>(null);
 
   const fetchChats = useCallback(async () => {
     if (!walletAddress) return;
@@ -145,7 +138,12 @@ export default function ChatDashboard() {
   }, [activeChatId, fetchMessages]);
 
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    if (messages.length > 0) {
+      // Small delay to ensure DOM is updated
+      setTimeout(() => {
+        messagesEndRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
+      }, 100);
+    }
   }, [messages]);
 
   useEffect(() => {
@@ -466,8 +464,8 @@ export default function ChatDashboard() {
         <div className="bg-green-500/10 border border-green-500/30 rounded-2xl px-5 py-3 flex items-center gap-3">
           <div className="w-5 h-5 rounded-full bg-green-500 flex items-center justify-center text-white text-xs">✓</div>
           <span className="text-sm text-green-400">Payment confirmed</span>
-        </div>
-      );
+      </div>
+    );
     }
     
     // Generating with progress
@@ -488,7 +486,7 @@ export default function ChatDashboard() {
               <span className="text-sm text-white">{metadata.modelName}</span>
             </div>
             {isGenerating ? (
-              <span className="text-sm text-[#666] tabular-nums">{elapsedSeconds}s</span>
+              <span className="text-sm text-[#aaa] tabular-nums">{elapsedSeconds}s</span>
             ) : (
               <span className="text-xs text-green-500">Done</span>
             )}
@@ -497,7 +495,7 @@ export default function ChatDashboard() {
             {isGenerating ? (
               <div className="h-full w-full bg-[#222] relative overflow-hidden">
                 <div className="absolute inset-0 bg-gradient-to-r from-transparent via-[var(--accent)] to-transparent animate-slide" />
-              </div>
+            </div>
             ) : (
               <div className="h-full w-full bg-[var(--accent)] rounded-full" />
             )}
@@ -514,8 +512,8 @@ export default function ChatDashboard() {
           <div className="rounded-2xl overflow-hidden bg-[#111] border border-[#222]">
             <img src={imageUrl} alt="" className="w-full" />
             <div className="px-4 py-3 flex items-center justify-between">
-              <span className="text-xs text-[#666]">{metadata.modelName}</span>
-              <button onClick={() => handleShare(imageUrl)} className="text-xs text-[#666] hover:text-white">
+              <span className="text-xs text-[#aaa]">{metadata.modelName}</span>
+              <button onClick={() => handleShare(imageUrl)} className="text-xs text-[#aaa] hover:text-white">
                 Share ↗
               </button>
             </div>
@@ -535,7 +533,7 @@ export default function ChatDashboard() {
     
     return null;
   };
-  
+
 
   // Create new chat
   const handleNewChat = useCallback(async () => {
@@ -593,42 +591,6 @@ export default function ChatDashboard() {
     }
   }, [activeChatId, chats, publicKey, deletingChatIds]);
 
-  // Initialize Vanta.js FOG effect
-  useEffect(() => {
-    if (!connected || !vantaRef.current) return;
-    
-    // Wait for VANTA to be available
-    const initVanta = () => {
-      if (window.VANTA && window.VANTA.FOG) {
-        if (vantaEffect.current) {
-          vantaEffect.current.destroy();
-        }
-        vantaEffect.current = window.VANTA.FOG({
-          el: vantaRef.current,
-          mouseControls: true,
-          touchControls: true,
-          gyroControls: false,
-          minHeight: 200.00,
-          minWidth: 200.00,
-          highlightColor: 0xc8ff00, // --accent
-          midtoneColor: 0x111111, // --surface
-          lowlightColor: 0x0a0a0a, // --bg
-          baseColor: 0x0a0a0a, // --bg
-        });
-      } else {
-        setTimeout(initVanta, 100);
-      }
-    };
-    
-    initVanta();
-    
-    return () => {
-      if (vantaEffect.current) {
-        vantaEffect.current.destroy();
-      }
-    };
-  }, [connected]);
-
   // Not connected - show sleek login message
   if (!connected) {
     return (
@@ -640,35 +602,50 @@ export default function ChatDashboard() {
           <p className="text-[var(--muted)] text-sm leading-relaxed">
             Connect your wallet to begin generating images and videos
           </p>
-        </div>
       </div>
-    );
+    </div>
+  );
   }
 
   return (
     <div className="h-[calc(100vh-96px)] flex flex-col relative">
-      {/* Vanta.js background */}
-      <div ref={vantaRef} className="fixed inset-0 -z-10" style={{ top: '96px' }} />
-      
       {/* Messages area */}
-      <div className="flex-1 overflow-y-auto relative z-0">
+      <div 
+        className="flex-1 overflow-y-auto relative z-0 scrollbar-sleek" 
+        style={{ 
+          WebkitOverflowScrolling: 'touch', 
+          scrollBehavior: 'smooth',
+          touchAction: 'pan-y',
+          overscrollBehavior: 'contain'
+        }}
+        data-lenis-prevent
+      >
         <div className="max-w-3xl mx-auto px-6 py-8">
           {/* Sessions - Sticky header */}
-          <div className="sticky top-0 z-10 pb-6 pt-4 -mt-4 -mx-6 px-6 bg-[var(--bg)] border-b-[0.5px] border-[#111]">
+          <div className="sticky top-0 z-10 pb-4 pt-4 -mt-8 -mx-6 px-6 bg-[#0a0a0a] rounded-2xl mb-6" style={{ border: '0.5px solid var(--dim)', pointerEvents: 'auto' }}>
             <div className="flex items-center justify-between mb-3">
-              <p className="text-[10px] uppercase tracking-wider text-[#444]">Sessions</p>
+              <p className="text-[10px] uppercase tracking-wider text-[#666]">Sessions</p>
               <button 
                 onClick={handleNewChat}
-                className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-[#111] border border-[#222] text-[#888] hover:text-white hover:border-[var(--accent)] hover:bg-[#1a1a1a] transition-all group"
+                className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-[#111] border border-[#222] text-[#aaa] hover:text-white hover:border-[var(--accent)] hover:bg-[#1a1a1a] transition-all group"
                 title="Create new session"
               >
                 <Plus className="w-4 h-4 group-hover:text-[var(--accent)] transition-colors" />
                 <span className="text-xs font-medium">New Chat</span>
-              </button>
-            </div>
-            <div className="flex items-center gap-2 overflow-x-auto scrollbar-sleek pb-1">
+          </button>
+        </div>
+            <div 
+              className="flex items-center gap-2 overflow-x-auto scrollbar-sleek pb-1" 
+              style={{ 
+                WebkitOverflowScrolling: 'touch', 
+                scrollBehavior: 'smooth',
+                touchAction: 'pan-x',
+                overscrollBehavior: 'contain'
+              }}
+              data-lenis-prevent
+            >
               {chats.length === 0 ? (
-                <span className="text-[10px] text-[#333] italic">No sessions yet</span>
+                <span className="text-[10px] text-[#666] italic">No sessions yet</span>
               ) : (
                 chats.slice(0, 8).map((chat) => {
                   const isDeleting = deletingChatIds.has(chat.id);
@@ -676,7 +653,7 @@ export default function ChatDashboard() {
                   return (
                     <div
                       key={chat.id}
-                      className={`group flex items-center gap-2 px-3 py-2 rounded-xl text-xs whitespace-nowrap transition-all cursor-pointer ${
+                      className={`group flex items-center gap-2 px-3 py-2 rounded-2xl text-xs whitespace-nowrap transition-all cursor-pointer ${
                         isDeleting 
                           ? 'opacity-0 scale-95 -translate-x-2 pointer-events-none' 
                           : isNew
@@ -685,7 +662,7 @@ export default function ChatDashboard() {
                       } ${
                         activeChatId === chat.id 
                           ? 'bg-[var(--accent)] text-[#0a0a0a]' 
-                          : 'bg-[#111] text-[#888] hover:text-white hover:bg-[#1a1a1a]'
+                          : 'bg-[#111] text-[#aaa] hover:text-white hover:bg-[#1a1a1a]'
                       }`}
                       onClick={() => setActiveChatId(chat.id)}
                       style={{
@@ -707,21 +684,21 @@ export default function ChatDashboard() {
                         }`}
                       >
                         <Trash2 className="w-3 h-3" />
-                      </button>
+                  </button>
                     </div>
                   );
                 })
-              )}
-            </div>
+          )}
+        </div>
           </div>
           
           {messages.length === 0 ? (
-            <div className="flex flex-col items-center justify-center min-h-[50vh] text-center">
+            <div className="flex flex-col items-center justify-center min-h-[50vh] text-center pt-8">
               <h1 className="text-4xl font-bold text-[var(--fg)] mb-3">What will you create?</h1>
               <p className="text-[var(--muted)]">Choose a model and describe your vision</p>
             </div>
           ) : (
-            <div className="space-y-6">
+            <div className="space-y-6 pt-4">
               {messages.map((message) => {
                 const bubble = renderMessageContent(message);
                 if (!bubble) return null;
@@ -748,7 +725,7 @@ export default function ChatDashboard() {
               onChange={(e) => setPrompt(e.target.value)}
               onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSubmit(); } }}
               placeholder="Describe your vision..."
-              className="w-full bg-transparent text-lg focus:outline-none placeholder:text-[#444] mb-4 px-2"
+              className="w-full bg-transparent text-lg focus:outline-none placeholder:text-[#888] mb-4 px-2"
               disabled={isGenerating}
             />
             
@@ -757,38 +734,38 @@ export default function ChatDashboard() {
               <div className="flex items-center gap-2">
                 {/* Type pills */}
                 <div className="flex rounded-full overflow-hidden bg-[#0a0a0a] p-1">
-                  <button onClick={() => { setGenerationType('image'); setSelectedModel(''); }} className={`px-4 py-1.5 rounded-full text-xs font-medium transition-all ${generationType === 'image' ? 'bg-[var(--accent)] text-[#0a0a0a]' : 'text-[#666] hover:text-white'}`}>
+                  <button onClick={() => { setGenerationType('image'); setSelectedModel(''); }} className={`px-4 py-1.5 rounded-full text-xs font-medium transition-all ${generationType === 'image' ? 'bg-[var(--accent)] text-[#0a0a0a]' : 'text-[#aaa] hover:text-white'}`}>
                     Image
-                  </button>
-                  <button onClick={() => { setGenerationType('video'); setSelectedModel(''); }} className={`px-4 py-1.5 rounded-full text-xs font-medium transition-all ${generationType === 'video' ? 'bg-[var(--accent)] text-[#0a0a0a]' : 'text-[#666] hover:text-white'}`}>
+                </button>
+                  <button onClick={() => { setGenerationType('video'); setSelectedModel(''); }} className={`px-4 py-1.5 rounded-full text-xs font-medium transition-all ${generationType === 'video' ? 'bg-[var(--accent)] text-[#0a0a0a]' : 'text-[#aaa] hover:text-white'}`}>
                     Video
-                  </button>
-                </div>
+                </button>
+              </div>
 
                 {/* Model selector */}
                 <div className="relative" ref={modelMenuRef}>
-                  <button onClick={() => setModelMenuOpen(!modelMenuOpen)} className={`px-4 py-1.5 rounded-full text-xs font-medium transition-all flex items-center gap-2 ${selectedModel ? 'bg-[#1a1a1a] text-white' : 'bg-[#0a0a0a] text-[#666] hover:text-white'}`}>
+                  <button onClick={() => setModelMenuOpen(!modelMenuOpen)} className={`px-4 py-1.5 rounded-full text-xs font-medium transition-all flex items-center gap-2 ${selectedModel ? 'bg-[#1a1a1a] text-white' : 'bg-[#0a0a0a] text-[#aaa] hover:text-white'}`}>
                     {activeModel ? activeModel.name : 'Select model'}
-                    <span className="text-[#444]">↓</span>
-                  </button>
-                  {modelMenuOpen && (
+                    <span className="text-[#888]">↓</span>
+                </button>
+                {modelMenuOpen && (
                     <div className="absolute bottom-full mb-2 left-0 bg-[#111] border border-[#222] rounded-2xl z-50 min-w-[220px] overflow-hidden shadow-2xl shadow-black/50">
-                      {currentModels.map((model) => (
+                    {currentModels.map((model) => (
                         <button key={model.id} onClick={() => { setSelectedModel(model.id); setModelMenuOpen(false); }} className={`w-full px-4 py-3 text-left flex items-center justify-between text-sm transition-all ${selectedModel === model.id ? 'bg-[var(--accent)] text-[#0a0a0a]' : 'hover:bg-[#1a1a1a] text-white'}`}>
                           <span>{model.name}</span>
                           <span className={`font-mono text-xs ${selectedModel === model.id ? 'text-[#0a0a0a]/70' : 'text-[var(--accent)]'}`}>${model.price.toFixed(2)}</span>
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                </div>
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
+            </div>
 
               {/* Generate */}
               <button
                 onClick={handleSubmit}
                 disabled={!prompt.trim() || !selectedModel || isGenerating}
-                className={`px-6 py-2 rounded-full font-semibold text-sm transition-all ${!prompt.trim() || !selectedModel || isGenerating ? 'bg-[#1a1a1a] text-[#444] cursor-not-allowed' : 'bg-[var(--accent)] text-[#0a0a0a] hover:shadow-lg hover:shadow-[var(--accent)]/30 hover:scale-105'}`}
+                className={`px-6 py-2 rounded-full font-semibold text-sm transition-all ${!prompt.trim() || !selectedModel || isGenerating ? 'bg-[#1a1a1a] text-[#888] cursor-not-allowed' : 'bg-[var(--accent)] text-[#0a0a0a] hover:shadow-lg hover:shadow-[var(--accent)]/30 hover:scale-105'}`}
               >
                 {isGenerating ? (
                   <div className="flex items-center gap-2">

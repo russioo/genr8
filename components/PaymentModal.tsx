@@ -250,7 +250,7 @@ export default function PaymentModal({
               <div className="text-center">
                 <p className="text-xs font-medium text-black/60 mb-1">Choose Payment Method</p>
                 <p className="text-[10px] text-black/40">
-                  USDC is 4x more expensive than $GEN
+                  USDC is 4x more expensive than $GENR8
                 </p>
               </div>
               <div className="flex gap-2 p-1 bg-black/5 rounded-xl">
@@ -263,7 +263,7 @@ export default function PaymentModal({
                       : 'bg-transparent text-black/40 hover:text-black/60'
                   }`}
                 >
-                  $GEN
+                  $GENR8
                   <span className="absolute -top-1 -right-1 bg-green-500 text-white text-[8px] px-1.5 py-0.5 rounded-full font-bold">
                     BEST
                   </span>
@@ -300,14 +300,14 @@ export default function PaymentModal({
                 )}
               </div>
                 <div className="text-[10px] sm:text-[11px] text-black/30 uppercase tracking-[0.28em] font-light">
-                  {paymentMethod === 'gen' ? '$GEN on Solana' : 'USDC on Solana'}
+                  {paymentMethod === 'gen' ? '$GENR8 on Solana' : 'USDC on Solana'}
                 </div>
               
               {/* Token Price Info */}
               {!isLoadingPrice && paymentMethod === 'gen' && tokenPrice && (
                   <div className="flex items-center justify-center gap-2 mt-1.5">
                     <div className="text-[11px] sm:text-xs text-black/40 font-light">
-                    1 $GEN = ${tokenPrice.toFixed(6)} USD
+                    1 $GENR8 = ${tokenPrice.toFixed(6)} USD
                     {priceSource && (
                         <span className="ml-1.5 text-black/25">({priceSource})</span>
                     )}
@@ -348,7 +348,7 @@ export default function PaymentModal({
                 <span className="text-black/30 font-light uppercase text-xs tracking-wider">Total Payment</span>
                 <span className="text-black font-light">
                   {paymentMethod === 'gen' 
-                    ? `${Math.floor(genAmount)} $GEN` 
+                    ? `${Math.floor(genAmount)} $GENR8` 
                     : `${usdcAmount.toFixed(3)} USDC`}
                 </span>
               </div>
@@ -481,7 +481,7 @@ export default function PaymentModal({
               ) : (
                 <span>
                   {paymentMethod === 'gen' 
-                    ? `Pay ${Math.floor(genAmount)} $GEN` 
+                    ? `Pay ${Math.floor(genAmount)} $GENR8` 
                     : `Pay ${usdcAmount.toFixed(3)} USDC`}
                 </span>
               )}

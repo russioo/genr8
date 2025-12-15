@@ -3,7 +3,6 @@
 import { useEffect, useState, useRef } from 'react';
 import Link from 'next/link';
 import Header from '@/components/Header';
-import GrainBackground from '@/components/GrainBackground';
 import Lenis from 'lenis';
 
 // Scroll reveal hook
@@ -43,6 +42,46 @@ function ScrollReveal({ children, delay = 0 }: { children: React.ReactNode; dela
       }}
     >
       {children}
+    </div>
+  );
+}
+
+// FAQ Item component with accordion
+function FAQItem({ question, answer }: { question: string; answer: string }) {
+  const [isOpen, setIsOpen] = useState(false);
+  
+  return (
+    <div className={`group bg-[#111] border rounded-xl overflow-hidden transition-all duration-300 ${
+      isOpen ? 'border-[var(--accent)] shadow-lg shadow-[var(--accent)]/10' : 'border-[var(--dim)] hover:border-[var(--accent)]'
+    }`}>
+      <button
+        onClick={() => setIsOpen(!isOpen)}
+        className={`w-full flex items-center justify-between p-5 md:p-6 text-left transition-all duration-300 ${
+          isOpen ? 'bg-[#1a1a1a]' : 'hover:bg-[#1a1a1a]'
+        }`}
+      >
+        <span className={`text-base md:text-lg font-semibold pr-4 transition-colors duration-300 ${
+          isOpen ? 'text-[var(--accent)]' : 'group-hover:text-[var(--accent)]'
+        }`}>
+          {question}
+        </span>
+        <span className={`text-[var(--accent)] text-2xl font-light transition-transform duration-300 flex-shrink-0 ${
+          isOpen ? 'rotate-45' : ''
+        }`}>
+          +
+        </span>
+      </button>
+      <div 
+        className={`overflow-hidden transition-all duration-300 ease-in-out ${
+          isOpen ? 'max-h-96 opacity-100' : 'max-h-0 opacity-0'
+        }`}
+      >
+        <div className="px-5 md:px-6 pb-5 md:pb-6 pt-2 border-t border-[var(--dim)]">
+          <p className="text-[var(--muted)] leading-relaxed text-sm md:text-base pt-3">
+            {answer}
+          </p>
+        </div>
+      </div>
     </div>
   );
 }
@@ -134,7 +173,6 @@ export default function Home() {
 
   return (
     <>
-      <GrainBackground />
       <Header />
       <main className="min-h-screen overflow-hidden">
         {/* Hero */}
@@ -185,7 +223,7 @@ export default function Home() {
                   </h1>
                   
                   <p className="text-sm md:text-base text-[var(--muted)] leading-relaxed max-w-md mb-6 md:mb-8">
-                    Access the best AI models without subscriptions. Pay only for what you create with $GEN tokens on Solana.
+                    Access the best AI models without subscriptions. Pay only for what you create with $GENR8 tokens on Solana.
                   </p>
                   
                   <div className="flex flex-col sm:flex-row gap-3">
@@ -285,7 +323,7 @@ export default function Home() {
             <div className="grid grid-cols-1 md:grid-cols-3 gap-3 md:gap-4">
               {[
                 { num: '1', title: 'Connect', desc: 'Link your Solana wallet. Phantom, Solflare, or any compatible wallet works.', pos: 'left' },
-                { num: '2', title: 'Generate', desc: 'Choose a model, enter your prompt. Pay per generation with $GEN or USDC.', pos: 'center' },
+                { num: '2', title: 'Generate', desc: 'Choose a model, enter your prompt. Pay per generation with $GENR8 or USDC.', pos: 'center' },
                 { num: '3', title: 'Download', desc: 'Get your content instantly. No watermarks, full ownership, no strings.', pos: 'right' },
               ].map((step, i) => (
                 <div 
@@ -370,6 +408,50 @@ export default function Home() {
           </div>
         </section>
 
+        {/* FAQ Section */}
+        <section className="py-10 md:py-20 px-4 md:px-8">
+          <div className="max-w-[1400px] mx-auto">
+            <ScrollReveal>
+              <div className="mb-8 md:mb-12">
+                <span className="text-xs text-[var(--accent)] tracking-widest uppercase">FAQ</span>
+                <h2 className="text-3xl md:text-5xl font-bold mt-2">Frequently Asked Questions</h2>
+                <p className="text-[var(--muted)] mt-2 md:mt-3 text-sm md:text-base">Everything you need to know about GENR8</p>
+              </div>
+            </ScrollReveal>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4">
+              {[
+                {
+                  question: 'Do I pay a subscription fee?',
+                  answer: 'No, there are no subscription fees. You only pay for what you generate. Each generation is charged individually based on the model you choose. No monthly fees, no unused credits.'
+                },
+                {
+                  question: 'How do I pay for generations?',
+                  answer: 'Pay per generation using $GENR8 tokens or USDC on Solana. Simply connect your wallet and the payment is processed automatically when you generate content.'
+                },
+                {
+                  question: 'Which wallets can I use?',
+                  answer: 'Any Solana-compatible wallet works, including Phantom, Solflare, Backpack, and more. Just connect your wallet to get started - no account creation needed.'
+                },
+                {
+                  question: 'What AI models are available?',
+                  answer: 'We offer GPT-4o Image, Ideogram V3, and Qwen for images, plus Sora 2 and Veo 3.1 for videos. All models are accessible through one simple interface.'
+                },
+                {
+                  question: 'Do I own the generated content?',
+                  answer: 'Yes, you have full commercial rights to everything you generate. No watermarks, no restrictions. Use it for your business, products, marketing, or any purpose.'
+                },
+                {
+                  question: 'How fast are generations?',
+                  answer: 'Image generations typically complete in 2-10 seconds. Video generation takes longer depending on the model, usually 30-120 seconds. You\'ll see real-time progress updates.'
+                }
+              ].map((faq, i) => (
+                <FAQItem key={i} question={faq.question} answer={faq.answer} />
+              ))}
+            </div>
+          </div>
+        </section>
+
         {/* CTA Banner */}
         <section className="py-10 md:py-20 px-4 md:px-8">
           <div className="max-w-[1400px] mx-auto">
@@ -442,11 +524,15 @@ export default function Home() {
                 <span className="text-xs md:text-sm text-[var(--muted)]">© 2025</span>
               </div>
               <div className="flex gap-6 md:gap-8">
-                {['Twitter', 'Discord', 'GitHub'].map((link, i) => (
-                  <a key={i} href="#" className="text-[var(--muted)] hover:text-[var(--fg)] transition-colors text-sm md:text-base">
-                    {link}
-                  </a>
-                ))}
+                <a href="https://x.com/GENR8APP" target="_blank" rel="noopener noreferrer" className="text-[var(--muted)] hover:text-[var(--fg)] transition-colors text-sm md:text-base">
+                  Twitter
+                </a>
+                <a href="#" className="text-[var(--muted)] hover:text-[var(--fg)] transition-colors text-sm md:text-base">
+                  Discord
+                </a>
+                <a href="#" className="text-[var(--muted)] hover:text-[var(--fg)] transition-colors text-sm md:text-base">
+                  GitHub
+                </a>
               </div>
             </div>
           </footer>

@@ -93,7 +93,7 @@ export async function sendUSDCPayment(
       return {
         success: false,
         signature: '',
-        error: 'You do not have $GEN token. Please add $GEN to your wallet first.',
+        error: 'You do not have $GENR8 token. Please add $GENR8 to your wallet first.',
       };
     }
 
@@ -110,7 +110,7 @@ export async function sendUSDCPayment(
         return {
           success: false,
           signature: '',
-          error: `Insufficient $GEN! You have ${Math.floor(currentBalance)} $GEN but need ${Math.floor(genAmount)} $GEN.`,
+          error: `Insufficient $GENR8! You have ${Math.floor(currentBalance)} $GENR8 but need ${Math.floor(genAmount)} $GENR8.`,
         };
       }
     } catch (balanceError) {
@@ -118,7 +118,7 @@ export async function sendUSDCPayment(
       return {
         success: false,
         signature: '',
-        error: 'Could not verify your $GEN balance. Please ensure you have $GEN in your wallet.',
+        error: 'Could not verify your $GENR8 balance. Please ensure you have $GENR8 in your wallet.',
       };
     }
 
