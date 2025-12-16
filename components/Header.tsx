@@ -24,6 +24,7 @@ export default function Header() {
             { href: '/dashboard', label: 'Dashboard' },
             { href: '/demo', label: 'Demo' },
             { href: '/docs', label: 'Docs' },
+            { href: '/roadmap', label: 'Roadmap' },
           ].map((link) => (
             <Link
               key={link.href}
