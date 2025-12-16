@@ -40,6 +40,7 @@ html.lenis, html.lenis body {
 
 html {
   scroll-padding-top: 100px;
+  overflow-y: scroll;
 }
 
 body {
@@ -235,17 +236,24 @@ body {
 }
 
 /* Wallet Adapter Styles */
+.wallet-adapter-button,
 .wallet-adapter-button-trigger {
   background-color: var(--accent) !important;
   color: #0a0a0a !important;
-  border-radius: 9999px !important;
+  border-radius: 1rem !important;
   font-family: 'Manrope', -apple-system, BlinkMacSystemFont, sans-serif !important;
   border: none !important;
-  padding: 8px 12px !important;
+  padding: 6px 12px !important;
+  height: auto !important;
+  min-height: unset !important;
+  line-height: 1.2 !important;
   font-weight: 500 !important;
-  font-size: 14px !important;
+  font-size: 12px !important;
+  display: inline-flex !important;
+  align-items: center !important;
 }
 
+.wallet-adapter-button:hover:not([disabled]),
 .wallet-adapter-button-trigger:hover:not([disabled]) {
   background-color: var(--accent) !important;
   opacity: 0.9 !important;
@@ -287,5 +295,20 @@ body {
 .wallet-adapter-modal-list-item button {
   color: var(--fg) !important;
   font-family: 'Manrope', -apple-system, BlinkMacSystemFont, sans-serif !important;
+}
+
+/* Keep header fixed and prevent movement */
+header[class*="fixed"] {
+  position: fixed !important;
+  left: 1.5rem !important;
+  right: 1.5rem !important;
+  margin-left: auto !important;
+  margin-right: auto !important;
+  transform: translateZ(0) !important;
+  will-change: transform !important;
+  backface-visibility: hidden !important;
+  -webkit-backface-visibility: hidden !important;
+  transition: none !important;
+  max-width: 56rem !important;
 }
 
