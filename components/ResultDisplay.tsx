@@ -3,6 +3,7 @@
 import { Download, Share2 } from 'lucide-react';
 import Image from 'next/image';
 import JSZip from 'jszip';
+import CustomVideoPlayer from '@/components/CustomVideoPlayer';
 
 interface ResultDisplayProps {
   type: 'image' | 'video';
@@ -117,7 +118,7 @@ export default function ResultDisplay({
               <Image src={url} alt={prompt} fill className="object-cover" unoptimized />
             </div>
           ) : (
-            <video src={url} controls className="w-full" />
+            <CustomVideoPlayer src={url} />
           )}
         </div>
       )}

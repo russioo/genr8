@@ -9,6 +9,7 @@ import { Plus, ArrowUpRight, Trash2, Zap, Image, Video, Send } from 'lucide-reac
 import { imageModels, videoModels } from '@/lib/models';
 import ResultDisplay from '@/components/ResultDisplay';
 import GenerationProgress from '@/components/GenerationProgress';
+import CustomVideoPlayer from '@/components/CustomVideoPlayer';
 import { sendUSDCPayment } from '@/lib/solana-payment';
 
 
@@ -504,16 +505,22 @@ export default function ChatDashboard() {
       );
     }
     
-    // Generated image
+    // Generated image or video
     if (metadata.type === 'generation') {
-      const imageUrl = metadata.resultUrls?.[0] || metadata.result;
+      const resultUrl = metadata.resultUrls?.[0] || metadata.result;
+      const isVideo = metadata.generationType === 'video';
+      
       return (
         <div className="max-w-sm">
           <div className="rounded-2xl overflow-hidden bg-[#111] border border-[#222]">
-            <img src={imageUrl} alt="" className="w-full" />
+            {isVideo ? (
+              <CustomVideoPlayer src={resultUrl} />
+            ) : (
+              <img src={resultUrl} alt="" className="w-full" />
+            )}
             <div className="px-4 py-3 flex items-center justify-between">
               <span className="text-xs text-[#aaa]">{metadata.modelName}</span>
-              <button onClick={() => handleShare(imageUrl)} className="text-xs text-[#aaa] hover:text-white">
+              <button onClick={() => handleShare(resultUrl)} className="text-xs text-[#aaa] hover:text-white">
                 Share ↗
               </button>
             </div>
@@ -646,7 +653,7 @@ export default function ChatDashboard() {
             >
               {chats.length === 0 ? (
                 <span className="text-[10px] text-[#666] italic">No sessions yet</span>
-              ) : (
+          ) : (
                 chats.slice(0, 8).map((chat) => {
                   const isDeleting = deletingChatIds.has(chat.id);
                   const isNew = newChatId === chat.id;
@@ -691,7 +698,7 @@ export default function ChatDashboard() {
           )}
         </div>
           </div>
-          
+
           {messages.length === 0 ? (
             <div className="flex flex-col items-center justify-center min-h-[50vh] text-center pt-8">
               <h1 className="text-4xl font-bold text-[var(--fg)] mb-3">What will you create?</h1>

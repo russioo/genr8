@@ -532,7 +532,7 @@ export default function Home() {
                 </a>
                 <a href="#" className="text-[var(--muted)] hover:text-[var(--fg)] transition-colors text-sm md:text-base">
                   GitHub
-                </a>
+                  </a>
               </div>
             </div>
           </footer>
