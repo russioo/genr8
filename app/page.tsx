@@ -527,12 +527,6 @@ export default function Home() {
                 <a href="https://x.com/GENR8APP" target="_blank" rel="noopener noreferrer" className="text-[var(--muted)] hover:text-[var(--fg)] transition-colors text-sm md:text-base">
                   Twitter
                 </a>
-                <a href="#" className="text-[var(--muted)] hover:text-[var(--fg)] transition-colors text-sm md:text-base">
-                  Discord
-                </a>
-                <a href="#" className="text-[var(--muted)] hover:text-[var(--fg)] transition-colors text-sm md:text-base">
-                  GitHub
-                  </a>
               </div>
             </div>
           </footer>

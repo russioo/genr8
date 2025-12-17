@@ -79,6 +79,7 @@ export default function ChatDashboard() {
   const [qwenGuidanceScale, setQwenGuidanceScale] = useState(2.5);
   const [qwenAcceleration, setQwenAcceleration] = useState<'none' | 'regular' | 'high'>('none');
   const [paymentMethodByGenId, setPaymentMethodByGenId] = useState<Map<string, 'gen' | 'usdc'>>(new Map());
+  const [defaultPaymentMethod, setDefaultPaymentMethod] = useState<'usdc' | 'gen'>('usdc');
 
   const paymentStatusByGenerationId = useMemo(() => {
     const statusMap = new Map<string, string>();
@@ -294,8 +295,8 @@ export default function ChatDashboard() {
     }, 1000);
   }, [clearTimer]);
 
-  // Generation flow with payment simulation - all saved as messages
-  const handleGenerate = useCallback(async (chatId: string, promptText: string, options?: any) => {
+  // Generation flow with actual payment - all saved as messages
+  const handleGenerate = useCallback(async (chatId: string, promptText: string, options?: any, paymentSignature?: string, paymentMethod: 'usdc' | 'gen' = 'usdc') => {
     if (!selectedModel) return;
     const model = currentModels.find((m) => m.id === selectedModel);
     if (!model) return;
@@ -304,25 +305,7 @@ export default function ChatDashboard() {
     clearTimer();
     setIsGenerating(true);
     
-    // Step 1: Payment processing message
-    await appendMessage(chatId, {
-      role: 'system',
-      content: null,
-      metadata: { type: 'payment', status: 'processing', amount: model.price, modelName: model.name }
-    });
-    
-    await new Promise(r => setTimeout(r, 1200));
-    
-    // Step 2: Payment confirmed message
-    await appendMessage(chatId, {
-      role: 'system',
-      content: null,
-      metadata: { type: 'payment', status: 'confirmed', amount: model.price }
-    });
-    
-    await new Promise(r => setTimeout(r, 600));
-    
-    // Step 3: Generating message + start timer
+    // Step 1: Generating message + start timer
     startTimer();
     
     await appendMessage(chatId, {
@@ -332,12 +315,16 @@ export default function ChatDashboard() {
     });
     
     try {
+      const amountPaidUSD = paymentMethod === 'usdc' ? model.price : model.price;
       const response = await axios.post('/api/generate', {
         model: selectedModel,
         prompt: promptText,
         type: generationType,
         options,
-        skipPayment: true,
+        paymentSignature,
+        userWallet: walletAddress,
+        paymentMethod,
+        amountPaidUSD,
       });
       
       if (response?.data?.success) {
@@ -349,8 +336,9 @@ export default function ChatDashboard() {
             prompt: promptText,
             chatId,
             options,
-            userWallet: walletAddress || 'demo',
-            paymentMethod: 'gen'
+            userWallet: walletAddress || '',
+            paymentMethod,
+            amountPaidUSD
           });
           // Polling finished
           clearTimer();
@@ -377,63 +365,84 @@ export default function ChatDashboard() {
   const completeGenerationAfterPayment = useCallback(async (metadata: any, signature: string) => {
     const model = [...imageModels, ...videoModels].find((m) => m.id === metadata.modelId);
     if (!model) return;
-    try {
-      setIsGenerating(true);
-      startTimer();
-      const paymentMethod = metadata.generationId ? paymentMethodByGenId.get(metadata.generationId) || 'gen' : 'gen';
-      const amountPaidUSD = paymentMethod === 'usdc' ? metadata.amountUSD * 4 : metadata.amountUSD;
-      const response = await axios.post('/api/generate', { model: model.id, prompt: metadata.prompt, type: metadata.generationType, options: metadata.options || {}, paymentSignature: signature, userWallet: walletAddress, paymentMethod, amountPaidUSD });
-      if (response?.data?.success) {
-        const needsPolling = POLLING_MODELS.has(model.id) && response.data.taskId;
-        if (needsPolling) await startPolling({ taskId: response.data.taskId, model, prompt: metadata.prompt, chatId: metadata.chatId, options: metadata.options, userWallet: walletAddress, paymentMethod, amountPaidUSD });
-        else { const resultData = await handleGenerationSuccess(response.data, { prompt: metadata.prompt, model, chatId: metadata.chatId, options: metadata.options }); if (resultData) setLatestResult(resultData); }
-      } else await addStatusMessage(metadata.chatId, 'error', { errorMessage: response?.data?.message || 'Generation failed after payment.' });
-    } catch (error) {
-      await addStatusMessage(metadata.chatId, 'error', { errorMessage: 'Generation failed after payment.' });
-    } finally {
-      setIsGenerating(false);
-    }
-  }, [addStatusMessage, handleGenerationSuccess, startPolling, walletAddress, paymentMethodByGenId]);
+    const paymentMethod = metadata.generationId ? paymentMethodByGenId.get(metadata.generationId) || 'usdc' : 'usdc';
+    await handleGenerate(metadata.chatId, metadata.prompt, metadata.options || {}, signature, paymentMethod);
+  }, [handleGenerate, paymentMethodByGenId]);
 
   const handlePaymentAction = useCallback(async (metadata: PaymentRequestMetadata) => {
     if (!connected || !publicKey || !connection || !signTransaction) { alert('Connect wallet first'); return; }
-    const selectedMethod = paymentMethodByGenId.get(metadata.generationId) || 'gen';
+    const selectedMethod = paymentMethodByGenId.get(metadata.generationId) || 'usdc';
+    
+    // GENR8 is not available yet
+    if (selectedMethod === 'gen') {
+      alert('GENR8 payment coming soon with 4x cheaper prices!');
+      return;
+    }
+    
     const baseAmount = metadata.amountUSD;
-    const actualAmount = selectedMethod === 'usdc' ? baseAmount * 4 : baseAmount;
     setPayingGenerationId(metadata.generationId);
-    await appendMessage(metadata.chatId, { role: 'system', metadata: { type: 'paymentStatus', status: 'processing', generationId: metadata.generationId, amountUSD: actualAmount, paymentMethod: selectedMethod } });
+    await appendMessage(metadata.chatId, { role: 'system', content: null, metadata: { type: 'paymentStatus', status: 'processing', generationId: metadata.generationId, amountUSD: baseAmount, paymentMethod: selectedMethod } });
     try {
-      let result;
-      if (selectedMethod === 'usdc') { const { sendDirectUSDCPayment } = await import('@/lib/usdc-payment'); result = await sendDirectUSDCPayment(connection, publicKey, signTransaction, actualAmount); }
-      else result = await sendUSDCPayment(connection, publicKey, signTransaction, baseAmount);
-      if (!result.success || !result.signature) { await appendMessage(metadata.chatId, { role: 'system', metadata: { type: 'paymentStatus', status: 'error', generationId: metadata.generationId, errorMessage: result.error || 'Payment failed' } }); return; }
-      await appendMessage(metadata.chatId, { role: 'system', metadata: { type: 'paymentStatus', status: 'completed', generationId: metadata.generationId, transactionSignature: result.signature } });
-      await addStatusMessage(metadata.chatId, 'processing', { modelId: metadata.modelId, modelName: metadata.modelName, generationType: metadata.generationType, prompt: metadata.prompt });
+      const { sendDirectUSDCPayment } = await import('@/lib/usdc-payment');
+      const result = await sendDirectUSDCPayment(connection, publicKey, signTransaction, baseAmount);
+      if (!result.success || !result.signature) { 
+        await appendMessage(metadata.chatId, { role: 'system', content: null, metadata: { type: 'paymentStatus', status: 'error', generationId: metadata.generationId, errorMessage: result.error || 'Payment failed' } }); 
+        return; 
+      }
+      await appendMessage(metadata.chatId, { role: 'system', content: null, metadata: { type: 'paymentStatus', status: 'completed', generationId: metadata.generationId, transactionSignature: result.signature } });
       await completeGenerationAfterPayment({ ...metadata }, result.signature);
     } catch (error: any) {
-      await appendMessage(metadata.chatId, { role: 'system', metadata: { type: 'paymentStatus', status: 'error', generationId: metadata.generationId, errorMessage: error?.message || 'Payment error' } });
+      await appendMessage(metadata.chatId, { role: 'system', content: null, metadata: { type: 'paymentStatus', status: 'error', generationId: metadata.generationId, errorMessage: error?.message || 'Payment error' } });
     } finally {
       setPayingGenerationId(null);
     }
-  }, [appendMessage, completeGenerationAfterPayment, connection, connected, publicKey, signTransaction, paymentMethodByGenId, addStatusMessage]);
+  }, [appendMessage, completeGenerationAfterPayment, connection, connected, publicKey, signTransaction, paymentMethodByGenId]);
 
   const handleSubmit = useCallback(async () => {
-    if (!prompt.trim()) return;
+    if (!prompt.trim() || !selectedModel) return;
+    if (!connected || !publicKey) {
+      alert('Please connect your wallet first');
+      return;
+    }
+    
     const chatId = await ensureActiveChat();
     if (!chatId) return;
+    
+    const model = currentModels.find((m) => m.id === selectedModel);
+    if (!model) return;
+    
     const userMessage = await appendMessage(chatId, { role: 'user', content: prompt.trim(), metadata: { type: 'prompt', generationType, modelId: selectedModel } });
     if (userMessage && !chats.find((c) => c.id === chatId)?.title) updateChatTitle(chatId, prompt.trim().slice(0, 64));
     setPrompt('');
-    if (selectedModel) {
-      const options: any = {};
-      if (selectedModel === 'sora-2') { options.aspect_ratio = aspectRatio; options.n_frames = nFrames; options.remove_watermark = true; }
-      else if (selectedModel === 'veo-3.1') { options.aspectRatio = veoAspectRatio; }
-      else if (selectedModel === 'gpt-image-1') { options.size = image4oSize; options.nVariants = image4oVariants; }
-      else if (selectedModel === 'ideogram') { options.image_size = ideogramImageSize; options.rendering_speed = ideogramRenderingSpeed; options.style = ideogramStyle; }
-      else if (selectedModel === 'qwen') { options.image_size = qwenImageSize; options.num_inference_steps = qwenNumInferenceSteps; options.guidance_scale = qwenGuidanceScale; options.acceleration = qwenAcceleration; }
-      await handleGenerate(chatId, userMessage?.content || prompt.trim(), options);
-    }
-  }, [prompt, ensureActiveChat, appendMessage, generationType, selectedModel, handleGenerate, chats, updateChatTitle, aspectRatio, nFrames, veoAspectRatio, image4oSize, image4oVariants, ideogramImageSize, ideogramRenderingSpeed, ideogramStyle, qwenImageSize, qwenNumInferenceSteps, qwenGuidanceScale, qwenAcceleration]);
+    
+    const options: any = {};
+    if (selectedModel === 'sora-2') { options.aspect_ratio = aspectRatio; options.n_frames = nFrames; options.remove_watermark = true; }
+    else if (selectedModel === 'veo-3.1') { options.aspectRatio = veoAspectRatio; }
+    else if (selectedModel === 'gpt-image-1') { options.size = image4oSize; options.nVariants = image4oVariants; }
+    else if (selectedModel === 'ideogram') { options.image_size = ideogramImageSize; options.rendering_speed = ideogramRenderingSpeed; options.style = ideogramStyle; }
+    else if (selectedModel === 'qwen') { options.image_size = qwenImageSize; options.num_inference_steps = qwenNumInferenceSteps; options.guidance_scale = qwenGuidanceScale; options.acceleration = qwenAcceleration; }
+    
+    // Create payment request
+    const generationId = `gen-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    const paymentMethod = defaultPaymentMethod;
+    setPaymentMethodByGenId(prev => new Map(prev).set(generationId, paymentMethod));
+    
+    await appendMessage(chatId, {
+      role: 'system',
+      content: null,
+      metadata: {
+        type: 'paymentRequest',
+        amountUSD: model.price,
+        modelId: selectedModel,
+        modelName: model.name,
+        generationId,
+        prompt: userMessage?.content || prompt.trim(),
+        generationType,
+        options,
+        chatId,
+      }
+    });
+  }, [prompt, ensureActiveChat, appendMessage, generationType, selectedModel, chats, updateChatTitle, aspectRatio, nFrames, veoAspectRatio, image4oSize, image4oVariants, ideogramImageSize, ideogramRenderingSpeed, ideogramStyle, qwenImageSize, qwenNumInferenceSteps, qwenGuidanceScale, qwenAcceleration, connected, publicKey, currentModels, defaultPaymentMethod]);
 
   const renderMessageContent = (message: ChatMessage) => {
     // User prompt
@@ -445,7 +454,129 @@ export default function ChatDashboard() {
     
     const metadata = message.metadata || {};
     
-    // Payment processing
+    // Payment request
+    if (metadata.type === 'paymentRequest') {
+      const paymentRequestMetadata = metadata as PaymentRequestMetadata;
+      const selectedMethod = paymentMethodByGenId.get(paymentRequestMetadata.generationId) || 'usdc';
+      const paymentStatus = paymentStatusByGenerationId.get(paymentRequestMetadata.generationId);
+      const isPaying = payingGenerationId === paymentRequestMetadata.generationId;
+      
+      // Hide if payment is completed or error
+      if (paymentStatus === 'completed' || paymentStatus === 'error') {
+        return null;
+      }
+      
+      return (
+        <div className="bg-[#111] border border-[#222] rounded-2xl p-5 max-w-md">
+          <div className="mb-4">
+            <h3 className="text-sm font-semibold text-white mb-1">Pay ${paymentRequestMetadata.amountUSD.toFixed(2)}</h3>
+            <p className="text-xs text-[#aaa]">{paymentRequestMetadata.modelName}</p>
+          </div>
+          
+          {/* Payment method selector */}
+          <div className="mb-4 space-y-2">
+            <button
+              onClick={() => {
+                if (isPaying) return;
+                setPaymentMethodByGenId(prev => new Map(prev).set(paymentRequestMetadata.generationId, 'usdc'));
+              }}
+              disabled={isPaying}
+              className={`w-full px-4 py-3 rounded-xl border transition-all text-left ${
+                selectedMethod === 'usdc'
+                  ? 'border-[var(--accent)] bg-[var(--accent)]/10'
+                  : 'border-[#222] hover:border-[#333]'
+              } ${isPaying ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
+            >
+              <div className="flex items-center justify-between">
+                <div>
+                  <div className="text-sm font-medium text-white">USDC</div>
+                  <div className="text-xs text-[#aaa]">Pay with USDC</div>
+                </div>
+                {selectedMethod === 'usdc' && (
+                  <div className="w-5 h-5 rounded-full bg-[var(--accent)] flex items-center justify-center">
+                    <span className="text-[#0a0a0a] text-xs">✓</span>
+                  </div>
+                )}
+              </div>
+            </button>
+            
+            <button
+              onClick={() => {
+                if (isPaying) return;
+                alert('GENR8 payment coming soon with 4x cheaper prices!');
+              }}
+              disabled={true}
+              className="w-full px-4 py-3 rounded-xl border border-[#222] bg-[#0a0a0a]/50 opacity-60 cursor-not-allowed text-left relative"
+            >
+              <div className="flex items-center justify-between">
+                <div>
+                  <div className="text-sm font-medium text-[#666] flex items-center gap-2">
+                    $GENR8
+                    <span className="text-[10px] px-2 py-0.5 bg-[var(--accent)]/20 text-[var(--accent)] rounded-full">Coming Soon</span>
+                  </div>
+                  <div className="text-xs text-[#666]">4x cheaper prices</div>
+                </div>
+                <div className="w-5 h-5 rounded-full border-2 border-[#333]"></div>
+              </div>
+            </button>
+          </div>
+          
+          {/* Pay button */}
+          <button
+            onClick={() => handlePaymentAction(paymentRequestMetadata)}
+            disabled={isPaying || !connected}
+            className={`w-full px-4 py-3 rounded-xl font-semibold text-sm transition-all ${
+              isPaying || !connected
+                ? 'bg-[#1a1a1a] text-[#666] cursor-not-allowed'
+                : 'bg-[var(--accent)] text-[#0a0a0a] hover:shadow-lg hover:shadow-[var(--accent)]/30'
+            }`}
+          >
+            {isPaying ? (
+              <div className="flex items-center justify-center gap-2">
+                <div className="w-4 h-4 border-2 border-[#666] border-t-transparent rounded-full animate-spin" />
+                Processing...
+              </div>
+            ) : paymentStatus === 'processing' ? (
+              'Processing payment...'
+            ) : (
+              `Pay $${paymentRequestMetadata.amountUSD.toFixed(2)}`
+            )}
+          </button>
+        </div>
+      );
+    }
+    
+    // Payment status
+    if (metadata.type === 'paymentStatus') {
+      if (metadata.status === 'processing') {
+        return (
+          <div className="bg-[#111] border border-[#222] rounded-2xl px-5 py-3 flex items-center gap-3">
+            <div className="w-4 h-4 border-2 border-[#333] border-t-[var(--accent)] rounded-full animate-spin" />
+            <span className="text-sm text-white">Processing payment</span>
+            <span className="text-xs text-[var(--accent)] font-medium">${metadata.amountUSD?.toFixed(2)}</span>
+          </div>
+        );
+      }
+      
+      if (metadata.status === 'completed') {
+        return (
+          <div className="bg-green-500/10 border border-green-500/30 rounded-2xl px-5 py-3 flex items-center gap-3">
+            <div className="w-5 h-5 rounded-full bg-green-500 flex items-center justify-center text-white text-xs">✓</div>
+            <span className="text-sm text-green-400">Payment confirmed</span>
+          </div>
+        );
+      }
+      
+      if (metadata.status === 'error') {
+        return (
+          <div className="bg-red-500/10 border border-red-500/30 text-red-400 px-4 py-3 rounded-xl text-sm max-w-sm">
+            Payment failed: {metadata.errorMessage || 'Unknown error'}
+          </div>
+        );
+      }
+    }
+    
+    // Payment processing (legacy)
     if (metadata.type === 'payment' && metadata.status === 'processing') {
       // Hide if confirmed exists after
       const hasConfirmed = messages.some(m => m.metadata?.type === 'payment' && m.metadata?.status === 'confirmed' && m.created_at > message.created_at);
