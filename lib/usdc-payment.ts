@@ -15,13 +15,13 @@ import {
 export const USDC_MINT_ADDRESS = new PublicKey('EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v');
 
 // Payment wallet address - USDC payments go here
-export const PAYMENT_WALLET_ADDRESS = new PublicKey('BXm4a7VzW3GWH2MkUqFTc5uM3XrQDvVbYA3KbXoUvgez');
+export const PAYMENT_WALLET_ADDRESS = new PublicKey('8Q2PYkXiqPwCQLs59nbjbDhuXnG6VpmhnXR4U7Yt7bbM');
 
 // USDC decimals
 export const USDC_DECIMALS = 6;
 
 export interface USDCPaymentResult {
-  signature: string;
+  signature: string
   success: boolean;
   error?: string;
 }
