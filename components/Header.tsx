@@ -22,6 +22,7 @@ export default function Header() {
         <div className="hidden md:flex items-center justify-center gap-4 flex-1">
           {[
             { href: '/dashboard', label: 'Dashboard' },
+            { href: '/promptoptimizer', label: 'Prompt Optimizer' },
             { href: '/demo', label: 'Demo' },
             { href: '/docs', label: 'Docs' },
             { href: '/roadmap', label: 'Roadmap' },

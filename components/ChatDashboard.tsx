@@ -4,13 +4,13 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import axios from 'axios';
 import { useWallet, useConnection } from '@solana/wallet-adapter-react';
 import { WalletMultiButton } from '@solana/wallet-adapter-react-ui';
-import { Plus, ArrowUpRight, Trash2, Zap, Image, Video, Send } from 'lucide-react';
+import { Plus, ArrowUpRight, Trash2, Zap, Image, Video, Send, Sparkles } from 'lucide-react';
 
 import { imageModels, videoModels } from '@/lib/models';
 import ResultDisplay from '@/components/ResultDisplay';
 import GenerationProgress from '@/components/GenerationProgress';
 import CustomVideoPlayer from '@/components/CustomVideoPlayer';
-import { sendUSDCPayment } from '@/lib/solana-payment';
+import { sendUSDCPayment, getUSDCBalance } from '@/lib/solana-payment';
 
 
 type Chat = {
@@ -80,6 +80,10 @@ export default function ChatDashboard() {
   const [qwenAcceleration, setQwenAcceleration] = useState<'none' | 'regular' | 'high'>('none');
   const [paymentMethodByGenId, setPaymentMethodByGenId] = useState<Map<string, 'gen'>>(new Map());
   const [defaultPaymentMethod] = useState<'gen'>('gen');
+  const [tokenBalance, setTokenBalance] = useState<number | null>(null);
+  const [isOptimizing, setIsOptimizing] = useState(false);
+  const [optimizationStyle, setOptimizationStyle] = useState<'normal' | 'realistic' | 'ghibli' | 'drawn' | 'anime' | 'cinematic' | '3d'>('normal');
+  const [showOptimizerMenu, setShowOptimizerMenu] = useState(false);
 
   const paymentStatusByGenerationId = useMemo(() => {
     const statusMap = new Map<string, string>();
@@ -96,6 +100,7 @@ export default function ChatDashboard() {
   const activeModel = useMemo(() => currentModels.find((m) => m.id === selectedModel) || null, [currentModels, selectedModel]);
 
   const modelMenuRef = useRef<HTMLDivElement | null>(null);
+  const optimizerMenuRef = useRef<HTMLDivElement | null>(null);
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
 
   const fetchChats = useCallback(async () => {
@@ -139,6 +144,53 @@ export default function ChatDashboard() {
     else setMessages([]);
   }, [activeChatId, fetchMessages]);
 
+  // Check token balance for optimizer access
+  useEffect(() => {
+    async function checkBalance() {
+      if (connected && publicKey) {
+        try {
+          const balance = await getUSDCBalance(connection, publicKey);
+          setTokenBalance(balance);
+        } catch (error) {
+          console.error('Error checking balance:', error);
+          setTokenBalance(0);
+        }
+      } else {
+        setTokenBalance(null);
+      }
+    }
+    checkBalance();
+  }, [connected, publicKey, connection]);
+
+  const hasOptimizerAccess = tokenBalance !== null && tokenBalance >= 100000;
+
+  const handleOptimizePrompt = async () => {
+    if (!prompt.trim() || !hasOptimizerAccess || isOptimizing) return;
+    
+    setIsOptimizing(true);
+    try {
+      const response = await fetch('/api/optimize-prompt', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          prompt: prompt.trim(),
+          type: generationType,
+          style: optimizationStyle,
+        }),
+      });
+      
+      if (!response.ok) throw new Error('Failed to optimize prompt');
+      
+      const data = await response.json();
+      setPrompt(data.optimizedPrompt);
+      setShowOptimizerMenu(false);
+    } catch (error) {
+      console.error('Error optimizing prompt:', error);
+    } finally {
+      setIsOptimizing(false);
+    }
+  };
+
   useEffect(() => {
     if (messages.length > 0) {
       // Small delay to ensure DOM is updated
@@ -156,6 +208,21 @@ export default function ChatDashboard() {
     window.addEventListener('mousedown', handleClickOutside);
     return () => window.removeEventListener('mousedown', handleClickOutside);
   }, [modelMenuOpen]);
+
+  // Close optimizer menu on outside click
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (optimizerMenuRef.current && !optimizerMenuRef.current.contains(e.target as Node)) {
+        setShowOptimizerMenu(false);
+      }
+    };
+
+    if (showOptimizerMenu) {
+      window.addEventListener('mousedown', handleClickOutside);
+    }
+
+    return () => window.removeEventListener('mousedown', handleClickOutside);
+  }, [showOptimizerMenu]);
 
   const createChat = useCallback(async () => {
     if (!walletAddress) return null;
@@ -820,15 +887,77 @@ export default function ChatDashboard() {
         <div className="max-w-3xl mx-auto">
           <div className="bg-[#0d0d0d] border-[0.5px] border-[#1a1a1a] rounded-3xl p-4 shadow-2xl shadow-black/50">
             {/* Input */}
-            <input
-              type="text"
-              value={prompt}
-              onChange={(e) => setPrompt(e.target.value)}
-              onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSubmit(); } }}
-              placeholder="Describe your vision..."
-              className="w-full bg-transparent text-lg focus:outline-none placeholder:text-[#888] mb-4 px-2"
-              disabled={isGenerating}
-            />
+            <div className="relative mb-4">
+              <input
+                type="text"
+                value={prompt}
+                onChange={(e) => setPrompt(e.target.value)}
+                onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSubmit(); } }}
+                placeholder="Describe your vision..."
+                className="w-full bg-transparent text-lg focus:outline-none placeholder:text-[#888] px-2 pr-10"
+                disabled={isGenerating}
+              />
+              {prompt.trim() && hasOptimizerAccess && (
+                <div className="absolute right-2 top-1/2 -translate-y-1/2">
+                  <div className="relative" ref={optimizerMenuRef}>
+                    <button
+                      onClick={() => setShowOptimizerMenu(!showOptimizerMenu)}
+                      className="p-1.5 rounded-lg hover:bg-[#1a1a1a] transition-colors group"
+                      title="Optimize prompt"
+                    >
+                      <Sparkles className={`w-4 h-4 ${showOptimizerMenu ? 'text-[var(--accent)]' : 'text-[#666] group-hover:text-[var(--accent)]'} transition-colors`} />
+                    </button>
+                    {showOptimizerMenu && (
+                      <div className="absolute bottom-full mb-2 right-0 bg-[#111] border border-[#222] rounded-xl z-50 min-w-[200px] shadow-2xl shadow-black/50 overflow-hidden">
+                        <div className="p-2 border-b border-[#222]">
+                          <p className="text-xs text-[#666] uppercase tracking-wider px-2 py-1">Style</p>
+                          <div className="flex flex-wrap gap-1 p-1">
+                            {[
+                              { id: 'normal', label: 'Normal' },
+                              { id: 'realistic', label: 'Realistic' },
+                              { id: 'ghibli', label: 'Ghibli' },
+                              { id: 'drawn', label: 'Drawn' },
+                              { id: 'anime', label: 'Anime' },
+                              { id: 'cinematic', label: 'Cinematic' },
+                              { id: '3d', label: '3D' },
+                            ].map((style) => (
+                              <button
+                                key={style.id}
+                                onClick={() => setOptimizationStyle(style.id as any)}
+                                className={`px-2 py-1 text-xs rounded-md transition-all ${
+                                  optimizationStyle === style.id
+                                    ? 'bg-[var(--accent)] text-[#0a0a0a]'
+                                    : 'bg-[#0a0a0a] text-[#aaa] hover:text-white hover:bg-[#1a1a1a]'
+                                }`}
+                              >
+                                {style.label}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                        <button
+                          onClick={handleOptimizePrompt}
+                          disabled={isOptimizing}
+                          className="w-full px-4 py-2.5 text-sm font-medium bg-[var(--accent)] text-[#0a0a0a] hover:bg-[var(--accent)]/90 transition-all flex items-center justify-center gap-2"
+                        >
+                          {isOptimizing ? (
+                            <>
+                              <div className="w-4 h-4 border-2 border-[#0a0a0a]/30 border-t-[#0a0a0a] rounded-full animate-spin" />
+                              Optimizing...
+                            </>
+                          ) : (
+                            <>
+                              <Sparkles className="w-4 h-4" />
+                              Optimize
+                            </>
+                          )}
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
             
             {/* Controls */}
             <div className="flex items-center justify-between gap-3">
