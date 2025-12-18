@@ -1,9 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import OpenAI from 'openai';
 
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
+function getOpenAIClient() {
+  const apiKey = process.env.OPENAI_API_KEY;
+  if (!apiKey) return null;
+  return new OpenAI({ apiKey });
+}
 
 const IMAGE_STYLE_INSTRUCTIONS: Record<string, string> = {
   normal: `Enhance the prompt for high-quality AI image generation. Focus on:
@@ -178,7 +180,8 @@ export async function POST(request: NextRequest) {
 
     let optimizedPrompt: string;
 
-    if (process.env.OPENAI_API_KEY) {
+    const openai = getOpenAIClient();
+    if (openai) {
       try {
         const completion = await openai.chat.completions.create({
           model: 'gpt-4o-mini',
