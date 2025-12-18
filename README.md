@@ -1,6 +1,6 @@
 <div align="center">
   <br />
-  <img src="https://raw.githubusercontent.com/yourusername/genr8/main/public/githubbbbbb.PNG" alt="GENR8 Banner" width="100%" style="border-radius: 12px;" />
+  <img src="https://raw.githubusercontent.com/russioo/genr8/main/public/githubbbbbb.PNG" alt="GENR8 Banner" width="100%" style="border-radius: 12px;" />
   <br />
   <h1>GENR8</h1>
   <p><strong>An open-source AI generation platform that kills subscriptions.</strong></p>
@@ -49,7 +49,7 @@
 
 ```bash
 # Clone the repository
-git clone https://github.com/yourusername/genr8.git
+git clone https://github.com/russioo/genr8.git
 cd genr8
 
 # Install dependencies
