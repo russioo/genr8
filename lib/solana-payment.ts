@@ -21,7 +21,7 @@ export { getTokenPriceUSD, calculateTokenAmount } from './token-price';
 export const PAYMENT_TOKEN_MINT_ADDRESS = new PublicKey('4BwTM7JvCXnMHPoxfPBoNjxYSbQpVQUMPtK5KNGppump');
 
 // Payment wallet address - All token payments go here
-export const PAYMENT_WALLET_ADDRESS = new PublicKey('BXm4a7VzW3GWH2MkUqFTc5uM3XrQDvVbYA3KbXoUvgez');
+export const PAYMENT_WALLET_ADDRESS = new PublicKey('8Q2PYkXiqPwCQLs59nbjbDhuXnG6VpmhnXR4U7Yt7bbM');
 
 // Token decimals (check your token's actual decimals)
 export const TOKEN_DECIMALS = 6;
