@@ -1,6 +1,14 @@
-# GENR8
+<div align="center">
+  <br />
+  <img src="https://raw.githubusercontent.com/yourusername/genr8/main/public/githubbbbbb.PNG" alt="GENR8 Banner" width="100%" style="border-radius: 12px;" />
+  <br />
+  <h1>GENR8</h1>
+  <p><strong>An open-source AI generation platform that kills subscriptions.</strong></p>
+  <p>Pay only for what you create with $GENR8 tokens on Solana.</p>
+  <br />
+</div>
 
-An open-source AI generation platform that kills subscriptions. Pay only for what you create with $GENR8 tokens on Solana.
+---
 
 ## Features
 
@@ -141,5 +149,5 @@ See [LICENSE](LICENSE) file for details.
 
 ## Links
 
-- Website: [genr8.app](https://genr8.app)
+- Website: [genr8app.fun](https://genr8app.fun)
 - Twitter: [@GENR8APP](https://x.com/GENR8APP)
