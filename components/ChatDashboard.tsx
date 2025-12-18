@@ -78,8 +78,8 @@ export default function ChatDashboard() {
   const [qwenNumInferenceSteps, setQwenNumInferenceSteps] = useState(30);
   const [qwenGuidanceScale, setQwenGuidanceScale] = useState(2.5);
   const [qwenAcceleration, setQwenAcceleration] = useState<'none' | 'regular' | 'high'>('none');
-  const [paymentMethodByGenId, setPaymentMethodByGenId] = useState<Map<string, 'gen' | 'usdc'>>(new Map());
-  const [defaultPaymentMethod, setDefaultPaymentMethod] = useState<'usdc' | 'gen'>('usdc');
+  const [paymentMethodByGenId, setPaymentMethodByGenId] = useState<Map<string, 'gen'>>(new Map());
+  const [defaultPaymentMethod] = useState<'gen'>('gen');
 
   const paymentStatusByGenerationId = useMemo(() => {
     const statusMap = new Map<string, string>();
@@ -365,26 +365,21 @@ export default function ChatDashboard() {
   const completeGenerationAfterPayment = useCallback(async (metadata: any, signature: string) => {
     const model = [...imageModels, ...videoModels].find((m) => m.id === metadata.modelId);
     if (!model) return;
-    const paymentMethod = metadata.generationId ? paymentMethodByGenId.get(metadata.generationId) || 'usdc' : 'usdc';
+    const paymentMethod = 'gen';
     await handleGenerate(metadata.chatId, metadata.prompt, metadata.options || {}, signature, paymentMethod);
   }, [handleGenerate, paymentMethodByGenId]);
 
   const handlePaymentAction = useCallback(async (metadata: PaymentRequestMetadata) => {
     if (!connected || !publicKey || !connection || !signTransaction) { alert('Connect wallet first'); return; }
-    const selectedMethod = paymentMethodByGenId.get(metadata.generationId) || 'usdc';
-    
-    // GENR8 is not available yet
-    if (selectedMethod === 'gen') {
-      alert('GENR8 payment coming soon with 4x cheaper prices!');
-      return;
-    }
     
     const baseAmount = metadata.amountUSD;
     setPayingGenerationId(metadata.generationId);
-    await appendMessage(metadata.chatId, { role: 'system', content: null, metadata: { type: 'paymentStatus', status: 'processing', generationId: metadata.generationId, amountUSD: baseAmount, paymentMethod: selectedMethod } });
+    await appendMessage(metadata.chatId, { role: 'system', content: null, metadata: { type: 'paymentStatus', status: 'processing', generationId: metadata.generationId, amountUSD: baseAmount, paymentMethod: 'gen' } });
     try {
-      const { sendDirectUSDCPayment } = await import('@/lib/usdc-payment');
-      const result = await sendDirectUSDCPayment(connection, publicKey, signTransaction, baseAmount);
+      // Pay with $GENR8 token - price calculated via DexScreener
+      const { sendUSDCPayment } = await import('@/lib/solana-payment');
+      const result = await sendUSDCPayment(connection, publicKey, signTransaction, baseAmount);
+      
       if (!result.success || !result.signature) { 
         await appendMessage(metadata.chatId, { role: 'system', content: null, metadata: { type: 'paymentStatus', status: 'error', generationId: metadata.generationId, errorMessage: result.error || 'Payment failed' } }); 
         return; 
@@ -396,7 +391,7 @@ export default function ChatDashboard() {
     } finally {
       setPayingGenerationId(null);
     }
-  }, [appendMessage, completeGenerationAfterPayment, connection, connected, publicKey, signTransaction, paymentMethodByGenId]);
+  }, [appendMessage, completeGenerationAfterPayment, connection, connected, publicKey, signTransaction]);
 
   const handleSubmit = useCallback(async () => {
     if (!prompt.trim() || !selectedModel) return;
@@ -457,7 +452,6 @@ export default function ChatDashboard() {
     // Payment request
     if (metadata.type === 'paymentRequest') {
       const paymentRequestMetadata = metadata as PaymentRequestMetadata;
-      const selectedMethod = paymentMethodByGenId.get(paymentRequestMetadata.generationId) || 'usdc';
       const paymentStatus = paymentStatusByGenerationId.get(paymentRequestMetadata.generationId);
       const isPaying = payingGenerationId === paymentRequestMetadata.generationId;
       
@@ -473,52 +467,21 @@ export default function ChatDashboard() {
             <p className="text-xs text-[#aaa]">{paymentRequestMetadata.modelName}</p>
           </div>
           
-          {/* Payment method selector */}
-          <div className="mb-4 space-y-2">
-            <button
-              onClick={() => {
-                if (isPaying) return;
-                setPaymentMethodByGenId(prev => new Map(prev).set(paymentRequestMetadata.generationId, 'usdc'));
-              }}
-              disabled={isPaying}
-              className={`w-full px-4 py-3 rounded-xl border transition-all text-left ${
-                selectedMethod === 'usdc'
-                  ? 'border-[var(--accent)] bg-[var(--accent)]/10'
-                  : 'border-[#222] hover:border-[#333]'
-              } ${isPaying ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
-            >
+          {/* Payment method - GENR8 only */}
+          <div className="mb-4">
+            <div className="w-full px-4 py-3 rounded-xl border border-[var(--accent)] bg-[var(--accent)]/10 text-left">
               <div className="flex items-center justify-between">
                 <div>
-                  <div className="text-sm font-medium text-white">USDC</div>
-                  <div className="text-xs text-[#aaa]">Pay with USDC</div>
-                </div>
-                {selectedMethod === 'usdc' && (
-                  <div className="w-5 h-5 rounded-full bg-[var(--accent)] flex items-center justify-center">
-                    <span className="text-[#0a0a0a] text-xs">✓</span>
-                  </div>
-                )}
-              </div>
-            </button>
-            
-            <button
-              onClick={() => {
-                if (isPaying) return;
-                alert('GENR8 payment coming soon with 4x cheaper prices!');
-              }}
-              disabled={true}
-              className="w-full px-4 py-3 rounded-xl border border-[#222] bg-[#0a0a0a]/50 opacity-60 cursor-not-allowed text-left relative"
-            >
-              <div className="flex items-center justify-between">
-                <div>
-                  <div className="text-sm font-medium text-[#666] flex items-center gap-2">
+                  <div className="text-sm font-medium text-white flex items-center gap-2">
                     $GENR8
-                    <span className="text-[10px] px-2 py-0.5 bg-[var(--accent)]/20 text-[var(--accent)] rounded-full">Coming Soon</span>
                   </div>
-                  <div className="text-xs text-[#666]">4x cheaper prices</div>
+                  <div className="text-xs text-[#aaa]">Pay with $GENR8 token</div>
                 </div>
-                <div className="w-5 h-5 rounded-full border-2 border-[#333]"></div>
+                <div className="w-5 h-5 rounded-full bg-[var(--accent)] flex items-center justify-center">
+                  <span className="text-[#0a0a0a] text-xs">✓</span>
+                </div>
               </div>
-            </button>
+            </div>
           </div>
           
           {/* Pay button */}

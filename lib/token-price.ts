@@ -61,20 +61,8 @@ async function fetchPriceFromDexScreener(): Promise<number | null> {
       console.log(`🔍 After parsing: ${price} (original: ${mainPair.priceUsd})`);
       
       if (price && price > 0 && !isNaN(price)) {
-        console.log(`💰 $GEN price from DexScreener: $${price}`);
-        console.log(`💰 $GEN pris (scientific): ${price.toExponential()}`);
-        
-        // Sanity check: For $0.03 USD skulle vi ikke bruge mere end ~10,000 tokens
-        const testAmount = 0.03;
-        const tokensNeeded = (testAmount / 0.9) / price;
-        console.log(`🧪 Sanity test: $${testAmount} ville koste ${tokensNeeded.toFixed(0)} tokens`);
-        
-        if (tokensNeeded > 100000) {
-          console.error(`⚠️ ADVARSEL: Pris ser for lav ud! ${tokensNeeded.toFixed(0)} tokens for $${testAmount}!`);
-          console.error(`⚠️ Springer over denne pris...`);
-          return null;
-        }
-        
+        console.log(`💰 $GENR8 price from DexScreener: $${price}`);
+        console.log(`💰 Example: $0.04 USD = ${Math.ceil(0.04 / price)} $GENR8 tokens`);
         return price;
       }
     }
@@ -116,20 +104,8 @@ async function fetchPriceFromJupiter(): Promise<number | null> {
       priceString = priceString.replace(',', '.');
       const price = parseFloat(priceString);
       
-      console.log(`🔍 After parsing: ${price}`);
-      
       if (price && price > 0 && !isNaN(price)) {
-        // Sanity check
-        const testAmount = 0.03;
-        const tokensNeeded = (testAmount / 0.9) / price;
-        console.log(`🧪 Sanity test: $${testAmount} ville koste ${tokensNeeded.toFixed(0)} tokens`);
-        
-        if (tokensNeeded > 100000) {
-          console.error(`⚠️ ADVARSEL: Jupiter pris ser for lav ud! Springer over...`);
-          return null;
-        }
-        
-        console.log(`💰 $GEN price from Jupiter: $${price}`);
+        console.log(`💰 $GENR8 price from Jupiter: $${price}`);
         return price;
       }
     }

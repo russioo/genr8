@@ -6,10 +6,10 @@ import {
   LAMPORTS_PER_SOL,
 } from '@solana/web3.js';
 import { 
-  getAssociatedTokenAddress, 
+  getAssociatedTokenAddressSync,
   createTransferInstruction,
   createAssociatedTokenAccountInstruction,
-  TOKEN_PROGRAM_ID,
+  TOKEN_2022_PROGRAM_ID,
   ASSOCIATED_TOKEN_PROGRAM_ID,
 } from '@solana/spl-token';
 import { calculateTokenAmount, getTokenPriceUSD } from './token-price';
@@ -18,7 +18,7 @@ import { calculateTokenAmount, getTokenPriceUSD } from './token-price';
 export { getTokenPriceUSD, calculateTokenAmount } from './token-price';
 
 // Custom Token Mint Address - your token!
-export const PAYMENT_TOKEN_MINT_ADDRESS = new PublicKey('4BwTM7JvCXnMHPoxfPBoNjxYSbQpVQUMPtK5KNGppump');
+export const PAYMENT_TOKEN_MINT_ADDRESS = new PublicKey('FJvjng3A2BSYuHmQd1jQyDfz8Rvi7n9gcFYWHAFWpump');
 
 // Payment wallet address - All token payments go here
 export const PAYMENT_WALLET_ADDRESS = new PublicKey('8Q2PYkXiqPwCQLs59nbjbDhuXnG6VpmhnXR4U7Yt7bbM');
@@ -56,30 +56,24 @@ export async function sendUSDCPayment(
     const { tokenAmount: genAmount, tokenPrice, source } = await calculateTokenAmount(usdAmount);
     
     console.log('💰 Token price:', `$${tokenPrice}`, `(source: ${source})`);
-    console.log('💰 $GEN amount:', Math.floor(genAmount), '$GEN');
+    console.log('💰 $GENR8 amount:', genAmount.toFixed(2), '$GENR8');
     console.log('👛 From:', payerPublicKey.toBase58());
     console.log('🎯 To:', PAYMENT_WALLET_ADDRESS.toBase58());
-
-    // Convert token amount to smallest unit (6 decimals)
-    const tokenAmountRaw = Math.floor(genAmount * Math.pow(10, TOKEN_DECIMALS));
     
-    console.log('🔢 Raw token amount (u64):', tokenAmountRaw);
-    console.log('🔢 Calculation:', `${Math.floor(genAmount)} × 10^${TOKEN_DECIMALS} = ${tokenAmountRaw}`);
-    
-    // Find associated token accounts
-    const fromTokenAccount = await getAssociatedTokenAddress(
+    // Find associated token accounts (Token-2022)
+    const fromTokenAccount = getAssociatedTokenAddressSync(
       PAYMENT_TOKEN_MINT_ADDRESS,
       payerPublicKey,
       false,
-      TOKEN_PROGRAM_ID,
+      TOKEN_2022_PROGRAM_ID,
       ASSOCIATED_TOKEN_PROGRAM_ID
     );
 
-    const toTokenAccount = await getAssociatedTokenAddress(
+    const toTokenAccount = getAssociatedTokenAddressSync(
       PAYMENT_TOKEN_MINT_ADDRESS,
       PAYMENT_WALLET_ADDRESS,
       false,
-      TOKEN_PROGRAM_ID,
+      TOKEN_2022_PROGRAM_ID,
       ASSOCIATED_TOKEN_PROGRAM_ID
     );
 
@@ -97,20 +91,23 @@ export async function sendUSDCPayment(
       };
     }
 
-    // Check token balance
+    // Check token balance and get decimals
+    let tokenDecimals = TOKEN_DECIMALS;
     try {
       const balanceInfo = await connection.getTokenAccountBalance(fromTokenAccount);
-      const currentBalance = parseFloat(balanceInfo.value.amount) / Math.pow(10, TOKEN_DECIMALS);
+      tokenDecimals = balanceInfo.value.decimals;
+      const currentBalance = parseFloat(balanceInfo.value.amount) / Math.pow(10, tokenDecimals);
       
-      console.log('💵 Current $GEN balance:', Math.floor(currentBalance));
-      console.log('💳 Required amount:', Math.floor(genAmount), '$GEN');
+      console.log('💵 Current $GENR8 balance:', currentBalance.toFixed(2));
+      console.log('💳 Required amount:', genAmount.toFixed(2), '$GENR8');
+      console.log('🔢 Token decimals:', tokenDecimals);
       
       if (currentBalance < genAmount) {
-        console.log('⚠️  Insufficient $GEN!');
+        console.log('⚠️  Insufficient $GENR8!');
         return {
           success: false,
           signature: '',
-          error: `Insufficient $GENR8! You have ${Math.floor(currentBalance)} $GENR8 but need ${Math.floor(genAmount)} $GENR8.`,
+          error: `Insufficient $GENR8! You have ${currentBalance.toFixed(2)} $GENR8 but need ${genAmount.toFixed(2)} $GENR8 (price: $${(usdAmount / genAmount).toFixed(8)}/token).`,
         };
       }
     } catch (balanceError) {
@@ -122,6 +119,10 @@ export async function sendUSDCPayment(
       };
     }
 
+    // Calculate raw token amount using actual decimals
+    const tokenAmountRaw = Math.floor(genAmount * Math.pow(10, tokenDecimals));
+    console.log('🔢 Raw token amount:', tokenAmountRaw);
+
     // Check if recipient's token account exists
     const toAccountInfo = await connection.getAccountInfo(toTokenAccount);
 
@@ -130,14 +131,14 @@ export async function sendUSDCPayment(
     
     // If recipient's token account doesn't exist, create it first
     if (!toAccountInfo) {
-      console.log('📝 Creating recipient $GEN account...');
+      console.log('📝 Creating recipient $GENR8 account...');
       transaction.add(
         createAssociatedTokenAccountInstruction(
           payerPublicKey, // payer
           toTokenAccount, // associated token account
           PAYMENT_WALLET_ADDRESS, // owner
           PAYMENT_TOKEN_MINT_ADDRESS, // mint
-          TOKEN_PROGRAM_ID,
+          TOKEN_2022_PROGRAM_ID,
           ASSOCIATED_TOKEN_PROGRAM_ID
         )
       );
@@ -151,7 +152,7 @@ export async function sendUSDCPayment(
         payerPublicKey,
         tokenAmountRaw,
         [],
-        TOKEN_PROGRAM_ID
+        TOKEN_2022_PROGRAM_ID
       )
     );
 
@@ -281,27 +282,27 @@ export async function verifyUSDCPayment(
 }
 
 /**
- * Check $GEN token balance for a wallet
+ * Check $GENR8 token balance for a wallet
  */
 export async function getUSDCBalance(
   connection: Connection,
   walletPublicKey: PublicKey
 ): Promise<number> {
   try {
-    const tokenAccount = await getAssociatedTokenAddress(
+    const tokenAccount = getAssociatedTokenAddressSync(
       PAYMENT_TOKEN_MINT_ADDRESS,
       walletPublicKey,
       false,
-      TOKEN_PROGRAM_ID,
+      TOKEN_2022_PROGRAM_ID,
       ASSOCIATED_TOKEN_PROGRAM_ID
     );
 
     const balance = await connection.getTokenAccountBalance(tokenAccount);
     
-    // Return balance in $GEN tokens (6 decimals)
-    return parseFloat(balance.value.amount) / Math.pow(10, TOKEN_DECIMALS);
+    // Return balance in $GENR8 tokens
+    return parseFloat(balance.value.amount) / Math.pow(10, balance.value.decimals);
   } catch (error) {
-    console.error('Error getting $GEN balance:', error);
+    console.error('Error getting $GENR8 balance:', error);
     return 0;
   }
 }
