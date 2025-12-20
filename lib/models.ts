@@ -25,6 +25,14 @@ export const imageModels: ModelInfo[] = [
     price: parseFloat(process.env.PRICE_IMAGE_QWEN || '0.03'),
     type: 'image',
   },
+  {
+    id: 'nano-banan-pro',
+    name: 'Nano Banan Pro',
+    provider: 'Nano',
+    description: 'Advanced image generation with high quality output and flexible aspect ratios',
+    price: parseFloat(process.env.PRICE_IMAGE_NANO || '0.30'),
+    type: 'image',
+  },
 ];
 
 export const videoModels: ModelInfo[] = [
@@ -43,6 +51,23 @@ export const videoModels: ModelInfo[] = [
     description: 'High-quality videos with text or image input support',
     price: 0.360, // Hardcoded to override incorrect env variable
     type: 'video',
+  },
+  {
+    id: 'grok-imagine',
+    name: 'Grok Pro Imagine Video',
+    provider: 'xAI',
+    description: 'Image-to-video generation with motion control',
+    price: parseFloat(process.env.PRICE_VIDEO_GROK || '0.25'),
+    type: 'video',
+  },
+  {
+    id: 'sora-2-pro',
+    name: 'Sora 2 Pro',
+    provider: 'OpenAI',
+    description: 'Premium video generation with enhanced quality',
+    price: parseFloat(process.env.PRICE_VIDEO_SORA_2_PRO || '0.35'),
+    type: 'video',
+    comingSoon: true,
   },
 ];
 

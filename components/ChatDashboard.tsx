@@ -40,7 +40,7 @@ type PaymentRequestMetadata = {
   chatId: string;
 };
 
-const POLLING_MODELS = new Set(['sora-2', 'veo-3.1', 'gpt-image-1', 'ideogram', 'qwen']);
+const POLLING_MODELS = new Set(['sora-2', 'veo-3.1', 'gpt-image-1', 'ideogram', 'qwen', 'grok-imagine', 'nano-banan-pro']);
 
 export default function ChatDashboard() {
   const { publicKey, connected, signTransaction } = useWallet();
@@ -78,6 +78,18 @@ export default function ChatDashboard() {
   const [qwenNumInferenceSteps, setQwenNumInferenceSteps] = useState(30);
   const [qwenGuidanceScale, setQwenGuidanceScale] = useState(2.5);
   const [qwenAcceleration, setQwenAcceleration] = useState<'none' | 'regular' | 'high'>('none');
+  
+  // Grok Imagine settings
+  const [grokImagineMode, setGrokImagineMode] = useState<'fun' | 'normal' | 'spicy'>('normal');
+  const [grokImagineImageUrls, setGrokImagineImageUrls] = useState<string[]>([]);
+  const [grokImagineTaskId, setGrokImagineTaskId] = useState<string>('');
+  const [grokImagineIndex, setGrokImagineIndex] = useState<number>(0);
+  
+  // Nano Banana Pro settings
+  const [nanoBananaAspectRatio, setNanoBananaAspectRatio] = useState<'1:1' | '2:3' | '3:2' | '3:4' | '4:3' | '4:5' | '5:4' | '9:16' | '16:9' | '21:9' | 'auto'>('1:1');
+  const [nanoBananaResolution, setNanoBananaResolution] = useState<'1K' | '2K' | '4K'>('1K');
+  const [nanoBananaOutputFormat, setNanoBananaOutputFormat] = useState<'png' | 'jpg'>('png');
+  const [nanoBananaImageInput, setNanoBananaImageInput] = useState<string[]>([]);
   const [paymentMethodByGenId, setPaymentMethodByGenId] = useState<Map<string, 'gen'>>(new Map());
   const [defaultPaymentMethod] = useState<'gen'>('gen');
   const [tokenBalance, setTokenBalance] = useState<number | null>(null);
@@ -102,6 +114,7 @@ export default function ChatDashboard() {
   const modelMenuRef = useRef<HTMLDivElement | null>(null);
   const optimizerMenuRef = useRef<HTMLDivElement | null>(null);
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
+  const pendingDeletes = useRef<Set<string>>(new Set());
 
   const fetchChats = useCallback(async () => {
     if (!walletAddress) return;
@@ -368,6 +381,16 @@ export default function ChatDashboard() {
     const model = currentModels.find((m) => m.id === selectedModel);
     if (!model) return;
     
+    // Check if model is coming soon
+    if (model.comingSoon) {
+      await appendMessage(chatId, {
+        role: 'system',
+        content: null,
+        metadata: { type: 'error', message: `${model.name} is coming soon. Please check back later.` }
+      });
+      return;
+    }
+    
     // Reset
     clearTimer();
     setIsGenerating(true);
@@ -393,6 +416,18 @@ export default function ChatDashboard() {
         paymentMethod,
         amountPaidUSD,
       });
+      
+      // Handle coming soon response
+      if (response?.data?.comingSoon) {
+        clearTimer();
+        setIsGenerating(false);
+        await appendMessage(chatId, {
+          role: 'system',
+          content: null,
+          metadata: { type: 'error', message: response.data.message || `${model.name} is coming soon. Please check back later.` }
+        });
+        return;
+      }
       
       if (response?.data?.success) {
         const needsPolling = POLLING_MODELS.has(model.id) && response.data.taskId;
@@ -421,11 +456,21 @@ export default function ChatDashboard() {
       console.error('Generation error:', error);
       clearTimer();
       setIsGenerating(false);
-      await appendMessage(chatId, {
-        role: 'system',
-        content: null,
-        metadata: { type: 'error', message: error?.response?.data?.failMsg || error?.message || 'Generation failed' }
-      });
+      
+      // Handle coming soon error
+      if (error?.response?.status === 503 && error?.response?.data?.comingSoon) {
+        await appendMessage(chatId, {
+          role: 'system',
+          content: null,
+          metadata: { type: 'error', message: error.response.data.message || `${model.name} is coming soon. Please check back later.` }
+        });
+      } else {
+        await appendMessage(chatId, {
+          role: 'system',
+          content: null,
+          metadata: { type: 'error', message: error?.response?.data?.failMsg || error?.response?.data?.message || error?.message || 'Generation failed' }
+        });
+      }
     }
   }, [selectedModel, generationType, currentModels, walletAddress, startPolling, handleGenerationSuccess, appendMessage, clearTimer, startTimer]);
 
@@ -483,6 +528,23 @@ export default function ChatDashboard() {
     else if (selectedModel === 'gpt-image-1') { options.size = image4oSize; options.nVariants = image4oVariants; }
     else if (selectedModel === 'ideogram') { options.image_size = ideogramImageSize; options.rendering_speed = ideogramRenderingSpeed; options.style = ideogramStyle; }
     else if (selectedModel === 'qwen') { options.image_size = qwenImageSize; options.num_inference_steps = qwenNumInferenceSteps; options.guidance_scale = qwenGuidanceScale; options.acceleration = qwenAcceleration; }
+    else if (selectedModel === 'grok-imagine') { 
+      options.mode = grokImagineMode;
+      if (grokImagineImageUrls.length > 0) {
+        options.image_urls = grokImagineImageUrls;
+      } else if (grokImagineTaskId) {
+        options.task_id = grokImagineTaskId;
+        options.index = grokImagineIndex;
+      }
+    }
+    else if (selectedModel === 'nano-banan-pro') { 
+      options.aspect_ratio = nanoBananaAspectRatio;
+      options.resolution = nanoBananaResolution;
+      options.output_format = nanoBananaOutputFormat;
+      if (nanoBananaImageInput.length > 0) {
+        options.image_input = nanoBananaImageInput;
+      }
+    }
     
     // Create payment request
     const generationId = `gen-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
@@ -504,7 +566,7 @@ export default function ChatDashboard() {
         chatId,
       }
     });
-  }, [prompt, ensureActiveChat, appendMessage, generationType, selectedModel, chats, updateChatTitle, aspectRatio, nFrames, veoAspectRatio, image4oSize, image4oVariants, ideogramImageSize, ideogramRenderingSpeed, ideogramStyle, qwenImageSize, qwenNumInferenceSteps, qwenGuidanceScale, qwenAcceleration, connected, publicKey, currentModels, defaultPaymentMethod]);
+  }, [prompt, ensureActiveChat, appendMessage, generationType, selectedModel, chats, updateChatTitle, aspectRatio, nFrames, veoAspectRatio, image4oSize, image4oVariants, ideogramImageSize, ideogramRenderingSpeed, ideogramStyle, qwenImageSize, qwenNumInferenceSteps, qwenGuidanceScale, qwenAcceleration, grokImagineMode, grokImagineImageUrls, grokImagineTaskId, grokImagineIndex, nanoBananaAspectRatio, nanoBananaResolution, nanoBananaOutputFormat, nanoBananaImageInput, connected, publicKey, currentModels, defaultPaymentMethod]);
 
   const renderMessageContent = (message: ChatMessage) => {
     // User prompt
@@ -657,7 +719,7 @@ export default function ChatDashboard() {
             {isGenerating ? (
               <div className="h-full w-full bg-[#222] relative overflow-hidden">
                 <div className="absolute inset-0 bg-gradient-to-r from-transparent via-[var(--accent)] to-transparent animate-slide" />
-            </div>
+              </div>
             ) : (
               <div className="h-full w-full bg-[var(--accent)] rounded-full" />
             )}
@@ -716,9 +778,6 @@ export default function ChatDashboard() {
     }
   }, [createChat]);
 
-  // Track pending deletes to prevent double-clicks
-  const pendingDeletes = useRef<Set<string>>(new Set());
-
   // Delete chat
   const handleDeleteChat = useCallback(async (chatId: string) => {
     if (!publicKey) return;
@@ -770,9 +829,9 @@ export default function ChatDashboard() {
           <p className="text-[var(--muted)] text-sm leading-relaxed">
             Connect your wallet to begin generating images and videos
           </p>
+        </div>
       </div>
-    </div>
-  );
+    );
   }
 
   return (
@@ -800,8 +859,8 @@ export default function ChatDashboard() {
               >
                 <Plus className="w-4 h-4 group-hover:text-[var(--accent)] transition-colors" />
                 <span className="text-xs font-medium">New Chat</span>
-          </button>
-        </div>
+              </button>
+            </div>
             <div 
               className="flex items-center gap-2 overflow-x-auto scrollbar-sleek pb-1" 
               style={{ 
@@ -814,7 +873,7 @@ export default function ChatDashboard() {
             >
               {chats.length === 0 ? (
                 <span className="text-[10px] text-[#666] italic">No sessions yet</span>
-          ) : (
+              ) : (
                 chats.slice(0, 8).map((chat) => {
                   const isDeleting = deletingChatIds.has(chat.id);
                   const isNew = newChatId === chat.id;
@@ -856,8 +915,8 @@ export default function ChatDashboard() {
                     </div>
                   );
                 })
-          )}
-        </div>
+              )}
+            </div>
           </div>
 
           {messages.length === 0 ? (
@@ -959,52 +1018,415 @@ export default function ChatDashboard() {
               )}
             </div>
             
-            {/* Controls */}
-            <div className="flex items-center justify-between gap-3">
-              <div className="flex items-center gap-2">
-                {/* Type pills */}
-                <div className="flex rounded-full overflow-hidden bg-[#0a0a0a] p-1">
-                  <button onClick={() => { setGenerationType('image'); setSelectedModel(''); }} className={`px-4 py-1.5 rounded-full text-xs font-medium transition-all ${generationType === 'image' ? 'bg-[var(--accent)] text-[#0a0a0a]' : 'text-[#aaa] hover:text-white'}`}>
-                    Image
+            {/* Controls row */}
+            <div className="flex items-center gap-3 flex-wrap">
+              {/* Type pills */}
+              <div className="flex rounded-full overflow-hidden bg-[#0a0a0a] p-1">
+                <button onClick={() => { setGenerationType('image'); setSelectedModel(''); }} className={`px-4 py-1.5 rounded-full text-xs font-medium transition-all ${generationType === 'image' ? 'bg-[var(--accent)] text-[#0a0a0a]' : 'text-[#aaa] hover:text-white'}`}>
+                  Image
                 </button>
-                  <button onClick={() => { setGenerationType('video'); setSelectedModel(''); }} className={`px-4 py-1.5 rounded-full text-xs font-medium transition-all ${generationType === 'video' ? 'bg-[var(--accent)] text-[#0a0a0a]' : 'text-[#aaa] hover:text-white'}`}>
-                    Video
+                <button onClick={() => { setGenerationType('video'); setSelectedModel(''); }} className={`px-4 py-1.5 rounded-full text-xs font-medium transition-all ${generationType === 'video' ? 'bg-[var(--accent)] text-[#0a0a0a]' : 'text-[#aaa] hover:text-white'}`}>
+                  Video
                 </button>
               </div>
 
-                {/* Model selector */}
-                <div className="relative" ref={modelMenuRef}>
-                  <button onClick={() => setModelMenuOpen(!modelMenuOpen)} className={`px-4 py-1.5 rounded-full text-xs font-medium transition-all flex items-center gap-2 ${selectedModel ? 'bg-[#1a1a1a] text-white' : 'bg-[#0a0a0a] text-[#aaa] hover:text-white'}`}>
-                    {activeModel ? activeModel.name : 'Select model'}
-                    <span className="text-[#888]">↓</span>
+              {/* Model selector */}
+              <div className="relative" ref={modelMenuRef}>
+                <button onClick={() => setModelMenuOpen(!modelMenuOpen)} className={`px-4 py-1.5 rounded-full text-xs font-medium transition-all flex items-center gap-2 ${selectedModel ? 'bg-[#1a1a1a] text-white' : 'bg-[#0a0a0a] text-[#aaa] hover:text-white'}`}>
+                  {activeModel ? activeModel.name : 'Select model'}
+                  <span className="text-[#888]">↓</span>
                 </button>
                 {modelMenuOpen && (
-                    <div className="absolute bottom-full mb-2 left-0 bg-[#111] border border-[#222] rounded-2xl z-50 min-w-[220px] overflow-hidden shadow-2xl shadow-black/50">
-                    {currentModels.map((model) => (
-                        <button key={model.id} onClick={() => { setSelectedModel(model.id); setModelMenuOpen(false); }} className={`w-full px-4 py-3 text-left flex items-center justify-between text-sm transition-all ${selectedModel === model.id ? 'bg-[var(--accent)] text-[#0a0a0a]' : 'hover:bg-[#1a1a1a] text-white'}`}>
-                          <span>{model.name}</span>
-                          <span className={`font-mono text-xs ${selectedModel === model.id ? 'text-[#0a0a0a]/70' : 'text-[var(--accent)]'}`}>${model.price.toFixed(2)}</span>
-                      </button>
-                    ))}
+                  <div className="absolute bottom-full mb-2 left-0 bg-[#111] border border-[#222] rounded-2xl z-50 min-w-[220px] overflow-hidden shadow-2xl shadow-black/50">
+                    {currentModels.map((model) => {
+                      const isComingSoon = model.comingSoon;
+                      return (
+                        <button 
+                          key={model.id} 
+                          onClick={() => { if (!isComingSoon) { setSelectedModel(model.id); setModelMenuOpen(false); } }} 
+                          disabled={isComingSoon}
+                          className={`w-full px-4 py-3 text-left flex items-center justify-between text-sm transition-all relative ${
+                            isComingSoon 
+                              ? 'opacity-60 cursor-not-allowed text-[#666]' 
+                              : selectedModel === model.id 
+                              ? 'bg-[var(--accent)] text-[#0a0a0a]' 
+                              : 'hover:bg-[#1a1a1a] text-white'
+                          }`}
+                        >
+                          <div className="flex items-center gap-2">
+                            <span>{model.name}</span>
+                            {isComingSoon && (
+                              <span className="text-[8px] uppercase tracking-wider px-1.5 py-0.5 bg-[var(--accent)]/20 text-[var(--accent)] rounded-full font-semibold">
+                                Soon
+                              </span>
+                            )}
+                          </div>
+                          {!isComingSoon && (
+                            <span className={`font-mono text-xs ${selectedModel === model.id ? 'text-[#0a0a0a]/70' : 'text-[var(--accent)]'}`}>${model.price.toFixed(2)}</span>
+                          )}
+                        </button>
+                      );
+                    })}
                   </div>
                 )}
               </div>
-            </div>
 
-              {/* Generate */}
+              {/* Create button - inline */}
               <button
                 onClick={handleSubmit}
                 disabled={!prompt.trim() || !selectedModel || isGenerating}
-                className={`px-6 py-2 rounded-full font-semibold text-sm transition-all ${!prompt.trim() || !selectedModel || isGenerating ? 'bg-[#1a1a1a] text-[#888] cursor-not-allowed' : 'bg-[var(--accent)] text-[#0a0a0a] hover:shadow-lg hover:shadow-[var(--accent)]/30 hover:scale-105'}`}
+                className={`ml-auto px-5 py-1.5 rounded-full font-semibold text-xs transition-all ${!prompt.trim() || !selectedModel || isGenerating ? 'bg-[#1a1a1a] text-[#666] cursor-not-allowed' : 'bg-[var(--accent)] text-[#0a0a0a] hover:shadow-lg hover:shadow-[var(--accent)]/30'}`}
               >
-                {isGenerating ? (
-                  <div className="flex items-center gap-2">
-                    <div className="w-4 h-4 border-2 border-[#0a0a0a]/30 border-t-[#0a0a0a] rounded-full animate-spin" />
-                    Creating...
-                  </div>
-                ) : 'Create'}
+                {isGenerating ? 'Creating...' : 'Create'}
               </button>
             </div>
+
+            {/* Settings for each model - appears BELOW the controls row */}
+            {selectedModel && (
+              <div className="mt-3 pt-3 border-t border-[#1a1a1a]">
+                {/* Sora 2 Settings */}
+                {selectedModel === 'sora-2' && (
+                  <div className="flex items-end gap-4">
+                    <div>
+                      <label className="text-[9px] uppercase tracking-wider text-[#666] mb-1.5 block">Aspect</label>
+                      <div className="flex gap-1">
+                        {['landscape', 'portrait'].map((ratio) => (
+                          <button
+                            key={ratio}
+                            onClick={() => setAspectRatio(ratio as 'landscape' | 'portrait')}
+                            className={`px-3 py-1.5 rounded text-[10px] font-medium transition-all ${
+                              aspectRatio === ratio
+                                ? 'bg-[var(--accent)] text-[#0a0a0a]'
+                                : 'bg-[#0a0a0a] text-[#888] hover:text-white hover:bg-[#111] border border-[#1a1a1a]'
+                            }`}
+                          >
+                            {ratio.charAt(0).toUpperCase() + ratio.slice(1)}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                    <div>
+                      <label className="text-[9px] uppercase tracking-wider text-[#666] mb-1.5 block">Frames</label>
+                      <div className="flex gap-1">
+                        {['10', '15'].map((frames) => (
+                          <button
+                            key={frames}
+                            onClick={() => setNFrames(frames as '10' | '15')}
+                            className={`px-3 py-1.5 rounded text-[10px] font-medium transition-all ${
+                              nFrames === frames
+                                ? 'bg-[var(--accent)] text-[#0a0a0a]'
+                                : 'bg-[#0a0a0a] text-[#888] hover:text-white hover:bg-[#111] border border-[#1a1a1a]'
+                            }`}
+                          >
+                            {frames}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Veo 3.1 Settings */}
+                {selectedModel === 'veo-3.1' && (
+                  <div className="flex items-end gap-4">
+                    <div>
+                      <label className="text-[9px] uppercase tracking-wider text-[#666] mb-1.5 block">Aspect</label>
+                      <div className="flex gap-1">
+                        {['16:9', '9:16'].map((ratio) => (
+                          <button
+                            key={ratio}
+                            onClick={() => setVeoAspectRatio(ratio as '16:9' | '9:16')}
+                            className={`px-3 py-1.5 rounded text-[10px] font-medium transition-all ${
+                              veoAspectRatio === ratio
+                                ? 'bg-[var(--accent)] text-[#0a0a0a]'
+                                : 'bg-[#0a0a0a] text-[#888] hover:text-white hover:bg-[#111] border border-[#1a1a1a]'
+                            }`}
+                          >
+                            {ratio}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* 4o Image Settings */}
+                {selectedModel === 'gpt-image-1' && (
+                  <div className="flex items-end gap-4">
+                    <div>
+                      <label className="text-[9px] uppercase tracking-wider text-[#666] mb-1.5 block">Size</label>
+                      <div className="flex gap-1">
+                        {['1:1', '3:2', '2:3'].map((size) => (
+                          <button
+                            key={size}
+                            onClick={() => setImage4oSize(size as '1:1' | '3:2' | '2:3')}
+                            className={`px-3 py-1.5 rounded text-[10px] font-medium transition-all ${
+                              image4oSize === size
+                                ? 'bg-[var(--accent)] text-[#0a0a0a]'
+                                : 'bg-[#0a0a0a] text-[#888] hover:text-white hover:bg-[#111] border border-[#1a1a1a]'
+                            }`}
+                          >
+                            {size}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                    <div>
+                      <label className="text-[9px] uppercase tracking-wider text-[#666] mb-1.5 block">Variants</label>
+                      <div className="flex gap-1">
+                        {[1, 2, 4].map((num) => (
+                          <button
+                            key={num}
+                            onClick={() => setImage4oVariants(num as 1 | 2 | 4)}
+                            className={`px-3 py-1.5 rounded text-[10px] font-medium transition-all ${
+                              image4oVariants === num
+                                ? 'bg-[var(--accent)] text-[#0a0a0a]'
+                                : 'bg-[#0a0a0a] text-[#888] hover:text-white hover:bg-[#111] border border-[#1a1a1a]'
+                            }`}
+                          >
+                            {num}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Ideogram Settings */}
+                {selectedModel === 'ideogram' && (
+                  <div className="flex items-end gap-4">
+                    <div>
+                      <label className="text-[9px] uppercase tracking-wider text-[#666] mb-1.5 block">Size</label>
+                      <select
+                        value={ideogramImageSize}
+                        onChange={(e) => setIdeogramImageSize(e.target.value as any)}
+                        className="px-3 py-1.5 rounded text-[10px] bg-[#0a0a0a] text-white border border-[#1a1a1a] focus:border-[var(--accent)] focus:outline-none"
+                      >
+                        {['square', 'square_hd', 'portrait_4_3', 'portrait_16_9', 'landscape_4_3', 'landscape_16_9'].map((size) => (
+                          <option key={size} value={size}>{size.replace('_', ' ')}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="text-[9px] uppercase tracking-wider text-[#666] mb-1.5 block">Speed</label>
+                      <div className="flex gap-1">
+                        {['TURBO', 'BALANCED', 'QUALITY'].map((speed) => (
+                          <button
+                            key={speed}
+                            onClick={() => setIdeogramRenderingSpeed(speed as any)}
+                            className={`px-2 py-1.5 rounded text-[9px] font-medium transition-all ${
+                              ideogramRenderingSpeed === speed
+                                ? 'bg-[var(--accent)] text-[#0a0a0a]'
+                                : 'bg-[#0a0a0a] text-[#888] hover:text-white hover:bg-[#111] border border-[#1a1a1a]'
+                            }`}
+                          >
+                            {speed}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                    <div>
+                      <label className="text-[9px] uppercase tracking-wider text-[#666] mb-1.5 block">Style</label>
+                      <div className="flex gap-1">
+                        {['AUTO', 'GENERAL', 'REALISTIC', 'DESIGN'].map((style) => (
+                          <button
+                            key={style}
+                            onClick={() => setIdeogramStyle(style as any)}
+                            className={`px-2 py-1.5 rounded text-[9px] font-medium transition-all ${
+                              ideogramStyle === style
+                                ? 'bg-[var(--accent)] text-[#0a0a0a]'
+                                : 'bg-[#0a0a0a] text-[#888] hover:text-white hover:bg-[#111] border border-[#1a1a1a]'
+                            }`}
+                          >
+                            {style}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Qwen Settings */}
+                {selectedModel === 'qwen' && (
+                  <div className="flex items-end gap-4">
+                    <div>
+                      <label className="text-[9px] uppercase tracking-wider text-[#666] mb-1.5 block">Size</label>
+                      <select
+                        value={qwenImageSize}
+                        onChange={(e) => setQwenImageSize(e.target.value as any)}
+                        className="px-3 py-1.5 rounded text-[10px] bg-[#0a0a0a] text-white border border-[#1a1a1a] focus:border-[var(--accent)] focus:outline-none"
+                      >
+                        {['square', 'square_hd', 'portrait_4_3', 'portrait_16_9', 'landscape_4_3', 'landscape_16_9'].map((size) => (
+                          <option key={size} value={size}>{size.replace('_', ' ')}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="text-[9px] uppercase tracking-wider text-[#666] mb-1.5 block">Steps</label>
+                      <input
+                        type="number"
+                        min="1"
+                        max="50"
+                        value={qwenNumInferenceSteps}
+                        onChange={(e) => setQwenNumInferenceSteps(parseInt(e.target.value) || 30)}
+                        className="w-16 px-2 py-1.5 rounded text-[10px] bg-[#0a0a0a] text-white border border-[#1a1a1a] focus:border-[var(--accent)] focus:outline-none"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[9px] uppercase tracking-wider text-[#666] mb-1.5 block">Guidance</label>
+                      <input
+                        type="number"
+                        min="0"
+                        max="10"
+                        step="0.1"
+                        value={qwenGuidanceScale}
+                        onChange={(e) => setQwenGuidanceScale(parseFloat(e.target.value) || 2.5)}
+                        className="w-16 px-2 py-1.5 rounded text-[10px] bg-[#0a0a0a] text-white border border-[#1a1a1a] focus:border-[var(--accent)] focus:outline-none"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[9px] uppercase tracking-wider text-[#666] mb-1.5 block">Accel</label>
+                      <div className="flex gap-1">
+                        {['none', 'regular', 'high'].map((acc) => (
+                          <button
+                            key={acc}
+                            onClick={() => setQwenAcceleration(acc as any)}
+                            className={`px-2 py-1.5 rounded text-[9px] font-medium transition-all ${
+                              qwenAcceleration === acc
+                                ? 'bg-[var(--accent)] text-[#0a0a0a]'
+                                : 'bg-[#0a0a0a] text-[#888] hover:text-white hover:bg-[#111] border border-[#1a1a1a]'
+                            }`}
+                          >
+                            {acc}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Grok Imagine Settings */}
+                {selectedModel === 'grok-imagine' && (
+                  <div className="flex items-end gap-4 flex-wrap">
+                    <div>
+                      <label className="text-[9px] uppercase tracking-wider text-[#666] mb-1.5 block">Mode</label>
+                      <div className="flex gap-1">
+                        {['fun', 'normal', 'spicy'].map((mode) => (
+                          <button
+                            key={mode}
+                            onClick={() => setGrokImagineMode(mode as 'fun' | 'normal' | 'spicy')}
+                            className={`px-2 py-1.5 rounded text-[9px] font-medium transition-all ${
+                              grokImagineMode === mode
+                                ? 'bg-[var(--accent)] text-[#0a0a0a]'
+                                : 'bg-[#0a0a0a] text-[#888] hover:text-white hover:bg-[#111] border border-[#1a1a1a]'
+                            }`}
+                          >
+                            {mode.charAt(0).toUpperCase() + mode.slice(1)}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                    <div>
+                      <label className="text-[9px] uppercase tracking-wider text-[#666] mb-1.5 block">Image URL</label>
+                      <input
+                        type="text"
+                        placeholder="Optional"
+                        value={grokImagineImageUrls[0] || ''}
+                        onChange={(e) => setGrokImagineImageUrls(e.target.value ? [e.target.value] : [])}
+                        className="w-48 px-2 py-1.5 rounded text-[10px] bg-[#0a0a0a] text-white border border-[#1a1a1a] focus:border-[var(--accent)] focus:outline-none"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[9px] uppercase tracking-wider text-[#666] mb-1.5 block">Task ID</label>
+                      <input
+                        type="text"
+                        placeholder="Optional"
+                        value={grokImagineTaskId}
+                        onChange={(e) => setGrokImagineTaskId(e.target.value)}
+                        className="w-32 px-2 py-1.5 rounded text-[10px] bg-[#0a0a0a] text-white border border-[#1a1a1a] focus:border-[var(--accent)] focus:outline-none"
+                      />
+                    </div>
+                    {grokImagineTaskId && (
+                      <div>
+                        <label className="text-[9px] uppercase tracking-wider text-[#666] mb-1.5 block">Index</label>
+                        <input
+                          type="number"
+                          min="0"
+                          max="5"
+                          value={grokImagineIndex}
+                          onChange={(e) => setGrokImagineIndex(parseInt(e.target.value) || 0)}
+                          className="w-16 px-2 py-1.5 rounded text-[10px] bg-[#0a0a0a] text-white border border-[#1a1a1a] focus:border-[var(--accent)] focus:outline-none"
+                        />
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Nano Banana Pro Settings */}
+                {selectedModel === 'nano-banan-pro' && (
+                  <div className="flex items-end gap-4 flex-wrap">
+                    <div>
+                      <label className="text-[9px] uppercase tracking-wider text-[#666] mb-1.5 block">Aspect</label>
+                      <select
+                        value={nanoBananaAspectRatio}
+                        onChange={(e) => setNanoBananaAspectRatio(e.target.value as any)}
+                        className="px-3 py-1.5 rounded text-[10px] bg-[#0a0a0a] text-white border border-[#1a1a1a] focus:border-[var(--accent)] focus:outline-none"
+                      >
+                        {['1:1', '2:3', '3:2', '3:4', '4:3', '4:5', '5:4', '9:16', '16:9', '21:9', 'auto'].map((ratio) => (
+                          <option key={ratio} value={ratio}>{ratio}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="text-[9px] uppercase tracking-wider text-[#666] mb-1.5 block">Resolution</label>
+                      <div className="flex gap-1">
+                        {['1K', '2K', '4K'].map((res) => (
+                          <button
+                            key={res}
+                            onClick={() => setNanoBananaResolution(res as '1K' | '2K' | '4K')}
+                            className={`px-2 py-1.5 rounded text-[10px] font-medium transition-all ${
+                              nanoBananaResolution === res
+                                ? 'bg-[var(--accent)] text-[#0a0a0a]'
+                                : 'bg-[#0a0a0a] text-[#888] hover:text-white hover:bg-[#111] border border-[#1a1a1a]'
+                            }`}
+                          >
+                            {res}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                    <div>
+                      <label className="text-[9px] uppercase tracking-wider text-[#666] mb-1.5 block">Format</label>
+                      <div className="flex gap-1">
+                        {['png', 'jpg'].map((format) => (
+                          <button
+                            key={format}
+                            onClick={() => setNanoBananaOutputFormat(format as 'png' | 'jpg')}
+                            className={`px-2 py-1.5 rounded text-[10px] font-medium transition-all ${
+                              nanoBananaOutputFormat === format
+                                ? 'bg-[var(--accent)] text-[#0a0a0a]'
+                                : 'bg-[#0a0a0a] text-[#888] hover:text-white hover:bg-[#111] border border-[#1a1a1a]'
+                            }`}
+                          >
+                            {format.toUpperCase()}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                    <div>
+                      <label className="text-[9px] uppercase tracking-wider text-[#666] mb-1.5 block">Image Input</label>
+                      <input
+                        type="text"
+                        placeholder="URLs (optional)"
+                        value={nanoBananaImageInput.join(', ')}
+                        onChange={(e) => setNanoBananaImageInput(e.target.value ? e.target.value.split(',').map(s => s.trim()).filter(s => s) : [])}
+                        className="w-48 px-2 py-1.5 rounded text-[10px] bg-[#0a0a0a] text-white border border-[#1a1a1a] focus:border-[var(--accent)] focus:outline-none"
+                      />
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         </div>
       </div>

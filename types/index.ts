@@ -8,6 +8,7 @@ export interface ModelInfo {
   description: string;
   price: number;
   type: 'image' | 'video';
+  comingSoon?: boolean;
 }
 
 export interface GenerationRequest {

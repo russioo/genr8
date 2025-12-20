@@ -5,6 +5,8 @@ import { createVeoTask } from '@/lib/veo-ai';
 import { create4oImageTask } from '@/lib/openai-image';
 import { createIdeogramTask } from '@/lib/ideogram-ai';
 import { createQwenTask } from '@/lib/qwen-ai';
+import { createGrokImagineTask } from '@/lib/grok-ai';
+import { createNanoBananaTask } from '@/lib/nano-banana-ai';
 import { generations } from '@/lib/storage';
 import { Connection, clusterApiUrl } from '@solana/web3.js';
 import { verifyUSDCPayment } from '@/lib/solana-payment';
@@ -37,6 +39,18 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         { error: 'Invalid model' },
         { status: 400 }
+      );
+    }
+
+    // Check if model is coming soon
+    if (modelInfo.comingSoon) {
+      return NextResponse.json(
+        { 
+          error: 'Coming Soon',
+          message: `${modelInfo.name} is coming soon. Please check back later.`,
+          comingSoon: true,
+        },
+        { status: 503 }
       );
     }
 
@@ -363,6 +377,102 @@ export async function POST(request: NextRequest) {
         return NextResponse.json(
           { 
             error: 'Failed to initiate video generation',
+            message: error.message,
+          },
+          { status: 500 }
+        );
+      }
+    }
+
+    // For Grok Imagine, create task immediately
+    if (model === 'grok-imagine') {
+      try {
+        console.log('Creating Grok Imagine task with options:', options);
+        
+        const grokResponse = await createGrokImagineTask(prompt, {
+          image_urls: options?.image_urls,
+          task_id: options?.task_id,
+          index: options?.index,
+          mode: options?.mode || 'normal',
+        });
+
+        const grokTaskId = grokResponse.data.taskId;
+        
+        console.log('Grok Imagine task created:', grokTaskId);
+
+        // Track payment info
+        if (userWallet && paymentSignature) {
+          trackPayment({
+            taskId: grokTaskId,
+            userWallet,
+            amount: actualAmountPaid,
+            paymentMethod: effectivePaymentMethod,
+            paymentSignature,
+            model: 'grok-imagine',
+            timestamp: new Date(),
+          });
+        }
+
+        return NextResponse.json({
+          success: true,
+          taskId: grokTaskId,
+          message: 'Video generation started',
+          status: 'processing',
+          model: 'grok-imagine',
+        });
+      } catch (error: any) {
+        console.error('Failed to create Grok Imagine task:', error);
+        return NextResponse.json(
+          { 
+            error: 'Failed to initiate video generation',
+            message: error.message,
+          },
+          { status: 500 }
+        );
+      }
+    }
+
+    // For Nano Banana Pro, create task immediately
+    if (model === 'nano-banan-pro') {
+      try {
+        console.log('Creating Nano Banana Pro task with options:', options);
+        
+        const nanoResponse = await createNanoBananaTask(prompt, {
+          image_input: options?.image_input && options.image_input.length > 0 ? options.image_input : undefined,
+          aspect_ratio: options?.aspect_ratio || '1:1',
+          resolution: options?.resolution || '1K',
+          output_format: options?.output_format || 'png',
+        });
+
+        const nanoTaskId = nanoResponse.data.taskId;
+        
+        console.log('Nano Banana Pro task created:', nanoTaskId);
+
+        // Track payment info
+        if (userWallet && paymentSignature) {
+          trackPayment({
+            taskId: nanoTaskId,
+            userWallet,
+            amount: actualAmountPaid,
+            paymentMethod: effectivePaymentMethod,
+            paymentSignature,
+            model: 'nano-banan-pro',
+            timestamp: new Date(),
+          });
+        }
+
+        return NextResponse.json({
+          success: true,
+          taskId: nanoTaskId,
+          message: 'Image generation started',
+          status: 'processing',
+          model: 'nano-banan-pro',
+        });
+      } catch (error: any) {
+        console.error('Failed to create Nano Banana Pro task:', error);
+        return NextResponse.json(
+          { 
+            error: 'Failed to initiate image generation',
             message: error.message,
           },
           { status: 500 }

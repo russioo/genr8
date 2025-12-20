@@ -4,6 +4,8 @@ import { queryVeoTaskStatus } from '@/lib/veo-ai';
 import { query4oImageStatus } from '@/lib/openai-image';
 import { queryIdeogramStatus } from '@/lib/ideogram-ai';
 import { queryQwenStatus } from '@/lib/qwen-ai';
+import { queryGrokImagineStatus, parseGrokImagineTaskResult } from '@/lib/grok-ai';
+import { queryNanoBananaStatus, parseNanoBananaTaskResult } from '@/lib/nano-banana-ai';
 import { downloadAndUploadMultipleToSupabase } from '@/lib/supabase-helpers';
 import { clearPaymentTracking } from '@/lib/payment-tracking';
 
@@ -24,6 +26,8 @@ export async function GET(
     let is4oImage = false;
     let isIdeogram = false;
     let isQwen = false;
+    let isGrokImagine = false;
+    let isNanoBanana = false;
 
     // Use model parameter to determine which API to call
     if (model === 'gpt-image-1') {
@@ -51,6 +55,16 @@ export async function GET(
       taskResponse = await queryTaskStatus(taskId);
       isSora = true;
       console.log('✅ Sora API responded');
+    } else if (model === 'grok-imagine') {
+      console.log('🎯 Calling Grok Imagine API directly...');
+      taskResponse = await queryGrokImagineStatus(taskId);
+      isGrokImagine = true;
+      console.log('✅ Grok Imagine API responded');
+    } else if (model === 'nano-banan-pro') {
+      console.log('🎯 Calling Nano Banana Pro API directly...');
+      taskResponse = await queryNanoBananaStatus(taskId);
+      isNanoBanana = true;
+      console.log('✅ Nano Banana Pro API responded');
     } else {
       // Fallback: Try both APIs if model not specified (backward compatibility)
       console.log('⚠️ No model specified, trying both APIs...');
@@ -313,6 +327,118 @@ export async function GET(
       } else {
         // Still processing
         console.log('⏳ Still generating Sora video, state:', data.state);
+        return NextResponse.json({
+          success: false,
+          taskId: data.taskId,
+          state: data.state || 'processing',
+          message: `Generation in progress (${data.state || 'processing'})`,
+        });
+      }
+    }
+
+    // Handle Grok Imagine response (uses state)
+    if (isGrokImagine) {
+      console.log('🎯 Grok Imagine state:', data.state);
+      
+      if (data.state === 'success' && data.resultJson) {
+        console.log('🎉 GROK IMAGINE VIDEO IS READY!');
+        
+        const result = parseGrokImagineTaskResult(data.resultJson);
+        const videoUrl = result.resultUrls[0];
+        
+        console.log('🎥 FINAL VIDEO URL:', videoUrl);
+        
+        // Clear payment tracking on success
+        clearPaymentTracking(taskId);
+        
+        return NextResponse.json({
+          success: true,
+          taskId: data.taskId,
+          result: videoUrl,
+          resultUrls: result.resultUrls,
+          type: 'video',
+          state: 'completed',
+          model: 'grok-imagine',
+          credits: {
+            consumed: data.consumeCredits,
+            remaining: data.remainedCredits,
+          },
+        });
+      } else if (data.state === 'fail') {
+        console.log('❌ Grok Imagine generation failed:', data.failMsg);
+
+        return NextResponse.json(
+          {
+            success: false,
+            error: 'Generation failed',
+            failMsg: data.failMsg,
+            failCode: data.failCode,
+            state: 'failed',
+          },
+          { status: 500 }
+        );
+      } else {
+        // Still processing
+        console.log('⏳ Still generating Grok Imagine video, state:', data.state);
+        return NextResponse.json({
+          success: false,
+          taskId: data.taskId,
+          state: data.state || 'processing',
+          message: `Generation in progress (${data.state || 'processing'})`,
+        });
+      }
+    }
+
+    // Handle Nano Banana Pro response (uses state)
+    if (isNanoBanana) {
+      console.log('🎯 Nano Banana Pro state:', data.state);
+      
+      if (data.state === 'success' && data.resultJson) {
+        console.log('🎉 NANO BANANA PRO IMAGE IS READY!');
+        
+        const result = parseNanoBananaTaskResult(data.resultJson);
+        const imageUrls = result.resultUrls || [];
+        console.log('🖼️ Original URLs from Nano Banana Pro:', imageUrls);
+        
+        // Download images from Nano Banana Pro and upload to our Supabase
+        console.log('📥 Downloading and uploading images to Supabase...');
+        const supabaseUrls = await downloadAndUploadMultipleToSupabase(imageUrls, 'generated-images');
+        console.log('✅ Images uploaded to Supabase:', supabaseUrls);
+        
+        const imageUrl = supabaseUrls[0];
+        
+        // Clear payment tracking on success
+        clearPaymentTracking(taskId);
+        
+        return NextResponse.json({
+          success: true,
+          taskId: data.taskId,
+          result: imageUrl,
+          resultUrls: supabaseUrls, // All generated images from our Supabase
+          type: 'image',
+          state: 'completed',
+          model: 'nano-banan-pro',
+          credits: {
+            consumed: data.consumeCredits,
+            remaining: data.remainedCredits,
+          },
+        });
+      } else if (data.state === 'fail') {
+        console.log('❌ Nano Banana Pro generation failed:', data.failMsg);
+
+        return NextResponse.json(
+          {
+            success: false,
+            error: 'Generation failed',
+            failMsg: data.failMsg,
+            failCode: data.failCode,
+            state: 'failed',
+          },
+          { status: 500 }
+        );
+      } else {
+        // Still processing
+        console.log('⏳ Still generating Nano Banana Pro image, state:', data.state);
         return NextResponse.json({
           success: false,
           taskId: data.taskId,
