@@ -46,6 +46,13 @@ export async function POST(request: NextRequest) {
         else if (extension === 'webp') contentType = 'image/webp';
       }
       
+      if (!supabaseAdmin) {
+        return NextResponse.json(
+          { error: 'Supabase not configured' },
+          { status: 500 }
+        );
+      }
+
       // Upload to Supabase Storage bucket 'veo-images'
       const { data, error } = await supabaseAdmin.storage
         .from('veo-images')

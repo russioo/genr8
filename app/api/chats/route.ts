@@ -10,6 +10,10 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Missing wallet parameter' }, { status: 400 });
     }
 
+    if (!supabaseAdmin) {
+      return NextResponse.json({ error: 'Supabase not configured' }, { status: 500 });
+    }
+
     const { data, error } = await supabaseAdmin
       .from('chats')
       .select('*')
@@ -40,6 +44,10 @@ export async function POST(request: NextRequest) {
 
     if (!wallet) {
       return NextResponse.json({ error: 'Wallet is required' }, { status: 400 });
+    }
+
+    if (!supabaseAdmin) {
+      return NextResponse.json({ error: 'Supabase not configured' }, { status: 500 });
     }
 
     const { data, error } = await supabaseAdmin
@@ -79,6 +87,10 @@ export async function PATCH(request: NextRequest) {
       return NextResponse.json({ error: 'id is required' }, { status: 400 });
     }
 
+    if (!supabaseAdmin) {
+      return NextResponse.json({ error: 'Supabase not configured' }, { status: 500 });
+    }
+
     const { data, error } = await supabaseAdmin
       .from('chats')
       .update({ title: title?.trim() || null })
@@ -110,6 +122,10 @@ export async function DELETE(request: NextRequest) {
 
     if (!wallet) {
       return NextResponse.json({ error: 'wallet is required' }, { status: 400 });
+    }
+
+    if (!supabaseAdmin) {
+      return NextResponse.json({ error: 'Supabase not configured' }, { status: 500 });
     }
 
     const { error: ownershipError, data: chatRecord } = await supabaseAdmin

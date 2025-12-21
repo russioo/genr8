@@ -178,7 +178,8 @@ export default function ChatDashboard() {
     checkBalance();
   }, [connected, publicKey, connection]);
 
-  const hasOptimizerAccess = tokenBalance !== null && tokenBalance >= 100000;
+  const isDevWallet = walletAddress === DEV_WALLET;
+  const hasOptimizerAccess = isDevWallet || (tokenBalance !== null && tokenBalance >= 100000);
 
   const handleOptimizePrompt = async () => {
     if (!prompt.trim() || !hasOptimizerAccess || isOptimizing) return;

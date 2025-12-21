@@ -23,6 +23,10 @@ export async function downloadAndUploadToSupabase(
     const extension = imageUrl.split('.').pop()?.split('?')[0] || 'png';
     const filename = `${timestamp}-${randomStr}.${extension}`;
     
+    if (!supabaseAdmin) {
+      throw new Error('Supabase not configured');
+    }
+    
     // Upload to Supabase
     const { data, error } = await supabaseAdmin.storage
       .from(bucketName)

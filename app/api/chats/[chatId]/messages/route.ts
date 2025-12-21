@@ -12,6 +12,10 @@ export async function GET(
       return NextResponse.json({ error: 'Missing chatId parameter' }, { status: 400 });
     }
 
+    if (!supabaseAdmin) {
+      return NextResponse.json({ error: 'Supabase not configured' }, { status: 500 });
+    }
+
     const { data, error } = await supabaseAdmin
       .from('chat_messages')
       .select('*')
@@ -55,6 +59,10 @@ export async function POST(
 
     if (!role) {
       return NextResponse.json({ error: 'role is required' }, { status: 400 });
+    }
+
+    if (!supabaseAdmin) {
+      return NextResponse.json({ error: 'Supabase not configured' }, { status: 500 });
     }
 
     const { data, error } = await supabaseAdmin
