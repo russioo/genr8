@@ -8,6 +8,9 @@ import { getUSDCBalance } from '@/lib/solana-payment';
 
 const REQUIRED_TOKENS = 100000;
 
+// DEV wallet that gets free access
+const DEV_WALLET = '8Q2PYkXiqPwCQLs59nbjbDhuXnG6VpmhnXR4U7Yt7bbM';
+
 const STYLES = [
   { id: 'normal', name: 'Normal', desc: 'Enhanced quality' },
   { id: 'realistic', name: 'Realistic', desc: 'Photorealistic' },
@@ -69,7 +72,8 @@ export default function PromptOptimizerPage() {
   const { connected, publicKey } = useWallet();
   const { connection } = useConnection();
 
-  const hasAccess = tokenBalance !== null && tokenBalance >= REQUIRED_TOKENS;
+  const isDevWallet = publicKey?.toString() === DEV_WALLET;
+  const hasAccess = isDevWallet || (tokenBalance !== null && tokenBalance >= REQUIRED_TOKENS);
 
   useEffect(() => {
     setIsLoaded(true);
@@ -110,7 +114,7 @@ export default function PromptOptimizerPage() {
   }, [connected, publicKey, connection]);
 
   const handleOptimize = async () => {
-    if (!prompt.trim() || !hasAccess) return;
+    if (!prompt.trim() || (!hasAccess && !isDevWallet)) return;
     
     setIsOptimizing(true);
     setOptimizedPrompt('');
@@ -317,7 +321,11 @@ export default function PromptOptimizerPage() {
                     </div>
                     <div className="hidden md:flex items-center gap-3 px-4 py-2 bg-[#111] border border-[var(--dim)] rounded-xl">
                       <div className="w-2 h-2 bg-green-400 rounded-full" />
-                      <span className="text-sm text-[var(--muted)]">Balance: <span className="text-[var(--fg)] font-medium">{tokenBalance?.toLocaleString()} $GENR8</span></span>
+                      {isDevWallet ? (
+                        <span className="text-sm text-[var(--accent)] font-medium">Dev Wallet - Free Access</span>
+                      ) : (
+                        <span className="text-sm text-[var(--muted)]">Balance: <span className="text-[var(--fg)] font-medium">{tokenBalance?.toLocaleString()} $GENR8</span></span>
+                      )}
                     </div>
                   </div>
                 </ScrollReveal>

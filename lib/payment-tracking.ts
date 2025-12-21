@@ -11,6 +11,9 @@ export interface PaymentInfo {
   paymentSignature: string;
   model: string;
   timestamp: Date;
+  prompt?: string;
+  type?: 'image' | 'video';
+  resultUrl?: string;
 }
 
 // In-memory storage for payment tracking
@@ -30,9 +33,18 @@ export function trackPayment(info: PaymentInfo): void {
 }
 
 /**
+ * Gets payment info for a task
+ */
+export function getPaymentInfo(taskId: string): PaymentInfo | undefined {
+  return paymentTracking.get(taskId);
+}
+
+/**
  * Clears payment tracking when task is completed
  */
-export function clearPaymentTracking(taskId: string): void {
+export function clearPaymentTracking(taskId: string): PaymentInfo | undefined {
+  const info = paymentTracking.get(taskId);
   paymentTracking.delete(taskId);
+  return info;
 }
 

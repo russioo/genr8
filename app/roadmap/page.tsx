@@ -118,7 +118,7 @@ export default function RoadmapPage() {
                       { title: 'Wallet integration', status: 'completed' },
                       { title: 'Initial AI models', status: 'completed' },
                       { title: 'Payment system', status: 'completed' },
-                      { title: 'Prompt optimizer', status: 'in-progress' },
+                      { title: 'Prompt optimizer', status: 'completed' },
                     ]
                   },
                   {

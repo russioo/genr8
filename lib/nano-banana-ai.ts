@@ -1,5 +1,6 @@
 // Nano Banana Pro API Integration (Image Generation)
 
+
 const KIE_AI_API_URL = process.env.KIE_AI_API_URL || 'https://api.kie.ai/api/v1';
 const KIE_AI_API_KEY = process.env.KIE_AI_API_KEY;
 
@@ -167,4 +168,5 @@ export function parseNanoBananaTaskResult(resultJson: string): NanoBananaTaskRes
     throw new Error('Failed to parse Nano Banana Pro task result JSON');
   }
 }
+
 

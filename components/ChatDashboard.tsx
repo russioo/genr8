@@ -42,6 +42,9 @@ type PaymentRequestMetadata = {
 
 const POLLING_MODELS = new Set(['sora-2', 'veo-3.1', 'gpt-image-1', 'ideogram', 'qwen', 'grok-imagine', 'nano-banan-pro']);
 
+// DEV wallet that gets free access
+const DEV_WALLET = '8Q2PYkXiqPwCQLs59nbjbDhuXnG6VpmhnXR4U7Yt7bbM';
+
 export default function ChatDashboard() {
   const { publicKey, connected, signTransaction } = useWallet();
   const { connection } = useConnection();
@@ -481,7 +484,20 @@ export default function ChatDashboard() {
     await handleGenerate(metadata.chatId, metadata.prompt, metadata.options || {}, signature, paymentMethod);
   }, [handleGenerate, paymentMethodByGenId]);
 
-  const handlePaymentAction = useCallback(async (metadata: PaymentRequestMetadata) => {
+  const handlePaymentAction = useCallback(async (metadataOrGenId: PaymentRequestMetadata | string, metadataOverride?: any, signature?: string, paymentMethodOverride?: string, amountOverride?: number) => {
+    // Handle dev wallet case (signature provided directly)
+    if (typeof metadataOrGenId === 'string' && signature) {
+      const metadata = metadataOverride as PaymentRequestMetadata;
+      setPayingGenerationId(metadataOrGenId);
+      await appendMessage(metadata.chatId, { role: 'system', content: null, metadata: { type: 'paymentStatus', status: 'processing', generationId: metadataOrGenId, amountUSD: amountOverride || metadata.amountUSD, paymentMethod: paymentMethodOverride || 'gen' } });
+      await appendMessage(metadata.chatId, { role: 'system', content: null, metadata: { type: 'paymentStatus', status: 'completed', generationId: metadataOrGenId, transactionSignature: signature } });
+      await completeGenerationAfterPayment({ ...metadata }, signature);
+      setPayingGenerationId(null);
+      return;
+    }
+    
+    // Normal payment flow
+    const metadata = metadataOrGenId as PaymentRequestMetadata;
     if (!connected || !publicKey || !connection || !signTransaction) { alert('Connect wallet first'); return; }
     
     const baseAmount = metadata.amountUSD;
@@ -546,27 +562,46 @@ export default function ChatDashboard() {
       }
     }
     
-    // Create payment request
+    // Check if this is dev wallet - skip payment request
+    const isDevWallet = walletAddress === DEV_WALLET;
+    
+    // Create payment request (skip for dev wallet)
     const generationId = `gen-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
     const paymentMethod = defaultPaymentMethod;
     setPaymentMethodByGenId(prev => new Map(prev).set(generationId, paymentMethod));
     
-    await appendMessage(chatId, {
-      role: 'system',
-      content: null,
-      metadata: {
+    // If dev wallet, automatically start generation without payment
+    if (isDevWallet) {
+      const devMetadata: PaymentRequestMetadata = {
         type: 'paymentRequest',
+        generationId,
         amountUSD: model.price,
         modelId: selectedModel,
         modelName: model.name,
-        generationId,
         prompt: userMessage?.content || prompt.trim(),
         generationType,
         options,
         chatId,
-      }
-    });
-  }, [prompt, ensureActiveChat, appendMessage, generationType, selectedModel, chats, updateChatTitle, aspectRatio, nFrames, veoAspectRatio, image4oSize, image4oVariants, ideogramImageSize, ideogramRenderingSpeed, ideogramStyle, qwenImageSize, qwenNumInferenceSteps, qwenGuidanceScale, qwenAcceleration, grokImagineMode, grokImagineImageUrls, grokImagineTaskId, grokImagineIndex, nanoBananaAspectRatio, nanoBananaResolution, nanoBananaOutputFormat, nanoBananaImageInput, connected, publicKey, currentModels, defaultPaymentMethod]);
+      };
+      await handlePaymentAction(generationId, devMetadata, 'dev-wallet-free', 'gen', 0);
+    } else {
+      await appendMessage(chatId, {
+        role: 'system',
+        content: null,
+        metadata: {
+          type: 'paymentRequest',
+          amountUSD: model.price,
+          modelId: selectedModel,
+          modelName: model.name,
+          generationId,
+          prompt: userMessage?.content || prompt.trim(),
+          generationType,
+          options,
+          chatId,
+        }
+      });
+    }
+  }, [prompt, ensureActiveChat, appendMessage, generationType, selectedModel, chats, updateChatTitle, aspectRatio, nFrames, veoAspectRatio, image4oSize, image4oVariants, ideogramImageSize, ideogramRenderingSpeed, ideogramStyle, qwenImageSize, qwenNumInferenceSteps, qwenGuidanceScale, qwenAcceleration, grokImagineMode, grokImagineImageUrls, grokImagineTaskId, grokImagineIndex, nanoBananaAspectRatio, nanoBananaResolution, nanoBananaOutputFormat, nanoBananaImageInput, connected, publicKey, currentModels, defaultPaymentMethod, walletAddress, handlePaymentAction]);
 
   const renderMessageContent = (message: ChatMessage) => {
     // User prompt

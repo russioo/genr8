@@ -12,16 +12,18 @@ export const supabase = createClient(
 );
 
 // Admin client for server-side operations (with service role key)
-export const supabaseAdmin = createClient(
-  SUPABASE_URL,
-  SUPABASE_SERVICE_KEY,
-  {
-    auth: {
-      autoRefreshToken: false,
-      persistSession: false
-    }
-  }
-);
+export const supabaseAdmin = SUPABASE_SERVICE_KEY && SUPABASE_SERVICE_KEY !== 'placeholder-service-key'
+  ? createClient(
+      SUPABASE_URL,
+      SUPABASE_SERVICE_KEY,
+      {
+        auth: {
+          autoRefreshToken: false,
+          persistSession: false
+        }
+      }
+    )
+  : null;
 
 // Helper to check if Supabase is properly configured
 export const isSupabaseConfigured = () => {

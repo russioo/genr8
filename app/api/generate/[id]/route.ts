@@ -7,7 +7,50 @@ import { queryQwenStatus } from '@/lib/qwen-ai';
 import { queryGrokImagineStatus, parseGrokImagineTaskResult } from '@/lib/grok-ai';
 import { queryNanoBananaStatus, parseNanoBananaTaskResult } from '@/lib/nano-banana-ai';
 import { downloadAndUploadMultipleToSupabase } from '@/lib/supabase-helpers';
-import { clearPaymentTracking } from '@/lib/payment-tracking';
+import { clearPaymentTracking, PaymentInfo } from '@/lib/payment-tracking';
+import { saveGeneration } from '@/lib/stats-db';
+
+// DEV wallet that gets free access
+const DEV_WALLET = '8Q2PYkXiqPwCQLs59nbjbDhuXnG6VpmhnXR4U7Yt7bbM';
+
+/**
+ * Helper function to save generation stats with fallback to headers
+ */
+async function saveGenerationStats(
+  taskId: string,
+  model: string,
+  type: 'image' | 'video',
+  resultUrl: string,
+  paymentInfo: PaymentInfo | undefined,
+  userWallet: string,
+  paymentMethod: 'gen' | 'usdc',
+  amountPaid: number
+) {
+  const wallet = paymentInfo?.userWallet || userWallet;
+  const modelId = paymentInfo?.model || model;
+  const prompt = paymentInfo?.prompt || '';
+  const isDevWallet = wallet === DEV_WALLET;
+  
+  // Determine amount: use paymentInfo if available, otherwise check if dev wallet (0) or use amountPaid
+  const amount = paymentInfo?.amount ?? (isDevWallet ? 0 : amountPaid);
+  
+  // Determine signature: use paymentInfo if available, otherwise check if dev wallet or empty
+  const signature = paymentInfo?.paymentSignature || (isDevWallet ? 'dev-wallet-free' : '');
+  
+  if (wallet) {
+    await saveGeneration({
+      task_id: taskId,
+      user_wallet: wallet,
+      model: modelId,
+      prompt,
+      type,
+      amount_usd: amount,
+      payment_method: paymentInfo?.paymentMethod || paymentMethod,
+      payment_signature: signature,
+      result_url: resultUrl,
+    }).catch(err => console.error('Failed to save generation:', err));
+  }
+}
 
 export async function GET(
   request: NextRequest,
@@ -17,6 +60,11 @@ export async function GET(
     const taskId = params.id;
     const { searchParams } = new URL(request.url);
     const model = searchParams.get('model');
+    
+    // Get user wallet and payment info from headers (for dev wallet fallback)
+    const userWallet = request.headers.get('X-User-Wallet') || '';
+    const paymentMethod = (request.headers.get('X-Payment-Method') || 'gen') as 'gen' | 'usdc';
+    const amountPaid = parseFloat(request.headers.get('X-Amount-Paid') || '0') || 0;
 
     console.log('🔍 Checking task:', taskId, 'Model:', model);
 
@@ -101,8 +149,9 @@ export async function GET(
         // Return first image as primary, but include all URLs
         const imageUrl = supabaseUrls[0];
         
-        // Clear payment tracking on success
-        clearPaymentTracking(taskId);
+        // Save to database and clear payment tracking on success
+        const paymentInfo = clearPaymentTracking(taskId);
+        await saveGenerationStats(taskId, 'gpt-image-1', 'image', imageUrl, paymentInfo, userWallet, paymentMethod, amountPaid);
         
         return NextResponse.json({
           success: true,
@@ -158,6 +207,10 @@ export async function GET(
         
         const imageUrl = supabaseUrls[0];
         
+        // Save to database and clear payment tracking on success
+        const ideogramPaymentInfo = clearPaymentTracking(data.taskId);
+        await saveGenerationStats(data.taskId, 'ideogram', 'image', imageUrl, ideogramPaymentInfo, userWallet, paymentMethod, amountPaid);
+        
         return NextResponse.json({
           success: true,
           taskId: data.taskId,
@@ -208,6 +261,10 @@ export async function GET(
         
         const imageUrl = supabaseUrls[0];
         
+        // Save to database and clear payment tracking on success
+        const qwenPaymentInfo = clearPaymentTracking(data.taskId);
+        await saveGenerationStats(data.taskId, 'qwen', 'image', imageUrl, qwenPaymentInfo, userWallet, paymentMethod, amountPaid);
+        
         return NextResponse.json({
           success: true,
           taskId: data.taskId,
@@ -249,6 +306,10 @@ export async function GET(
         
         const videoUrl = data.response.resultUrls[0];
         console.log('🎥 FINAL VIDEO URL:', videoUrl);
+        
+        // Save to database and clear payment tracking on success
+        const veoPaymentInfo = clearPaymentTracking(taskId);
+        await saveGenerationStats(taskId, 'veo-3.1', 'video', videoUrl, veoPaymentInfo, userWallet, paymentMethod, amountPaid);
         
         return NextResponse.json({
           success: true,
@@ -295,8 +356,9 @@ export async function GET(
         
         console.log('🎥 FINAL VIDEO URL:', videoUrl);
         
-        // Clear payment tracking on success
-        clearPaymentTracking(taskId);
+        // Save to database and clear payment tracking on success
+        const paymentInfo = clearPaymentTracking(taskId);
+        await saveGenerationStats(taskId, 'sora-2', 'video', videoUrl, paymentInfo, userWallet, paymentMethod, amountPaid);
         
         return NextResponse.json({
           success: true,
@@ -348,8 +410,9 @@ export async function GET(
         
         console.log('🎥 FINAL VIDEO URL:', videoUrl);
         
-        // Clear payment tracking on success
-        clearPaymentTracking(taskId);
+        // Save to database and clear payment tracking on success
+        const paymentInfo = clearPaymentTracking(taskId);
+        await saveGenerationStats(taskId, 'grok-imagine', 'video', videoUrl, paymentInfo, userWallet, paymentMethod, amountPaid);
         
         return NextResponse.json({
           success: true,
@@ -407,8 +470,9 @@ export async function GET(
         
         const imageUrl = supabaseUrls[0];
         
-        // Clear payment tracking on success
-        clearPaymentTracking(taskId);
+        // Save to database and clear payment tracking on success
+        const paymentInfo = clearPaymentTracking(taskId);
+        await saveGenerationStats(taskId, 'nano-banan-pro', 'image', imageUrl, paymentInfo, userWallet, paymentMethod, amountPaid);
         
         return NextResponse.json({
           success: true,

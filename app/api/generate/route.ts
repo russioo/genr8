@@ -12,6 +12,9 @@ import { Connection, clusterApiUrl } from '@solana/web3.js';
 import { verifyUSDCPayment } from '@/lib/solana-payment';
 import { trackPayment } from '@/lib/payment-tracking';
 
+// DEV wallet that gets free access
+const DEV_WALLET = '8Q2PYkXiqPwCQLs59nbjbDhuXnG6VpmhnXR4U7Yt7bbM';
+
 // Store for pending payments (i produktion, brug database)
 const pendingPayments = new Map<string, {
   model: string;
@@ -54,9 +57,16 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // ====== DEV WALLET - Free access ======
+    const isDevWallet = userWallet && userWallet === DEV_WALLET;
+    
     // ====== DEMO MODE - Skip payment ======
-    if (skipPayment) {
-      console.log('🎁 DEMO MODE: Skipping payment for', modelInfo.name);
+    if (skipPayment || isDevWallet) {
+      if (isDevWallet) {
+        console.log('🎁 DEV WALLET: Free access granted for', modelInfo.name);
+      } else {
+        console.log('🎁 DEMO MODE: Skipping payment for', modelInfo.name);
+      }
       // Continue to generation without payment verification
     }
     // ====== HTTP 402 PAYMENT REQUIRED ======
@@ -101,11 +111,11 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Payment verification (skip in demo mode)
+    // Payment verification (skip in demo mode or dev wallet)
     let actualAmountPaid = modelInfo.price;
     let effectivePaymentMethod: 'gen' | 'usdc' = 'gen';
     
-    if (!skipPayment && paymentSignature) {
+    if (!skipPayment && !isDevWallet && paymentSignature) {
     console.log('💳 Verifying payment...');
     console.log('Payment Signature:', paymentSignature);
     
@@ -121,8 +131,12 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: 'Payment verification failed', message: 'Could not verify payment on Solana blockchain' }, { status: 402 });
     }
     console.log('✅ Payment verified! Starting generation...');
-    } else if (skipPayment) {
-      console.log('🎁 Demo mode - skipping payment verification');
+    } else if (skipPayment || isDevWallet) {
+      if (isDevWallet) {
+        console.log('🎁 Dev wallet - skipping payment verification');
+      } else {
+        console.log('🎁 Demo mode - skipping payment verification');
+      }
     }
     
     // ====== GENERATION LOGIC ======
@@ -144,21 +158,24 @@ export async function POST(request: NextRequest) {
         
         console.log('4o Image task created:', taskId);
 
-        // Track payment info
+        // Track payment info (or free generation for dev wallet)
         console.log('🔍 Tracking payment - userWallet:', userWallet);
         console.log('🔍 Tracking payment - paymentSignature:', paymentSignature);
         console.log('🔍 Tracking payment - paymentMethod:', paymentMethod);
-        if (userWallet && paymentSignature) {
+        if (userWallet) {
+          // Track as free generation for dev wallet, or paid generation for others
           trackPayment({
             taskId,
             userWallet,
-            amount: actualAmountPaid,
-            paymentMethod: effectivePaymentMethod,
-            paymentSignature,
+            amount: isDevWallet ? 0 : actualAmountPaid,
+            paymentMethod: isDevWallet ? 'gen' : effectivePaymentMethod,
+            paymentSignature: isDevWallet ? 'dev-wallet-free' : (paymentSignature || ''),
             model: 'gpt-image-1',
             timestamp: new Date(),
+            prompt,
+            type: 'image',
           });
-          console.log('✅ Payment tracked for taskId:', taskId);
+          console.log(isDevWallet ? '✅ Free generation tracked for dev wallet' : '✅ Payment tracked for taskId:', taskId);
         } else {
           console.warn('⚠️ Payment NOT tracked - missing userWallet or paymentSignature');
         }
@@ -204,15 +221,17 @@ export async function POST(request: NextRequest) {
         console.log('Ideogram task created:', taskId);
 
         // Track payment info
-        if (userWallet && paymentSignature) {
+        if (userWallet) {
           trackPayment({
             taskId,
             userWallet,
-            amount: actualAmountPaid,
-            paymentMethod: effectivePaymentMethod,
-            paymentSignature,
+            amount: isDevWallet ? 0 : actualAmountPaid,
+            paymentMethod: isDevWallet ? 'gen' : effectivePaymentMethod,
+            paymentSignature: isDevWallet ? 'dev-wallet-free' : (paymentSignature || ''),
             model: 'ideogram',
             timestamp: new Date(),
+            prompt,
+            type: 'image',
           });
         }
 
@@ -258,15 +277,17 @@ export async function POST(request: NextRequest) {
         console.log('Qwen task created:', taskId);
 
         // Track payment info
-        if (userWallet && paymentSignature) {
+        if (userWallet) {
           trackPayment({
             taskId,
             userWallet,
-            amount: actualAmountPaid,
-            paymentMethod: effectivePaymentMethod,
-            paymentSignature,
+            amount: isDevWallet ? 0 : actualAmountPaid,
+            paymentMethod: isDevWallet ? 'gen' : effectivePaymentMethod,
+            paymentSignature: isDevWallet ? 'dev-wallet-free' : (paymentSignature || ''),
             model: 'qwen',
             timestamp: new Date(),
+            prompt,
+            type: 'image',
           });
         }
 
@@ -305,15 +326,17 @@ export async function POST(request: NextRequest) {
         console.log('Sora 2 task created:', kieTaskId);
 
         // Track payment info
-        if (userWallet && paymentSignature) {
+        if (userWallet) {
           trackPayment({
             taskId: kieTaskId,
             userWallet,
-            amount: actualAmountPaid,
-            paymentMethod: effectivePaymentMethod,
-            paymentSignature,
+            amount: isDevWallet ? 0 : actualAmountPaid,
+            paymentMethod: isDevWallet ? 'gen' : effectivePaymentMethod,
+            paymentSignature: isDevWallet ? 'dev-wallet-free' : (paymentSignature || ''),
             model: 'sora-2',
             timestamp: new Date(),
+            prompt,
+            type: 'video',
           });
         }
 
@@ -352,15 +375,17 @@ export async function POST(request: NextRequest) {
         console.log('Veo 3.1 task created:', veoTaskId);
 
         // Track payment info
-        if (userWallet && paymentSignature) {
+        if (userWallet) {
           trackPayment({
             taskId: veoTaskId,
             userWallet,
-            amount: actualAmountPaid,
-            paymentMethod: effectivePaymentMethod,
-            paymentSignature,
+            amount: isDevWallet ? 0 : actualAmountPaid,
+            paymentMethod: isDevWallet ? 'gen' : effectivePaymentMethod,
+            paymentSignature: isDevWallet ? 'dev-wallet-free' : (paymentSignature || ''),
             model: 'veo-3.1',
             timestamp: new Date(),
+            prompt,
+            type: 'video',
           });
         }
 
@@ -401,15 +426,17 @@ export async function POST(request: NextRequest) {
         console.log('Grok Imagine task created:', grokTaskId);
 
         // Track payment info
-        if (userWallet && paymentSignature) {
+        if (userWallet) {
           trackPayment({
             taskId: grokTaskId,
             userWallet,
-            amount: actualAmountPaid,
-            paymentMethod: effectivePaymentMethod,
-            paymentSignature,
+            amount: isDevWallet ? 0 : actualAmountPaid,
+            paymentMethod: isDevWallet ? 'gen' : effectivePaymentMethod,
+            paymentSignature: isDevWallet ? 'dev-wallet-free' : (paymentSignature || ''),
             model: 'grok-imagine',
             timestamp: new Date(),
+            prompt,
+            type: 'video',
           });
         }
 
@@ -449,15 +476,17 @@ export async function POST(request: NextRequest) {
         console.log('Nano Banana Pro task created:', nanoTaskId);
 
         // Track payment info
-        if (userWallet && paymentSignature) {
+        if (userWallet) {
           trackPayment({
             taskId: nanoTaskId,
             userWallet,
-            amount: actualAmountPaid,
-            paymentMethod: effectivePaymentMethod,
-            paymentSignature,
+            amount: isDevWallet ? 0 : actualAmountPaid,
+            paymentMethod: isDevWallet ? 'gen' : effectivePaymentMethod,
+            paymentSignature: isDevWallet ? 'dev-wallet-free' : (paymentSignature || ''),
             model: 'nano-banan-pro',
             timestamp: new Date(),
+            prompt,
+            type: 'image',
           });
         }
 
