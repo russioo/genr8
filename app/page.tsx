@@ -521,7 +521,7 @@ export default function Home() {
             <div className="max-w-6xl mx-auto flex flex-col md:flex-row justify-between items-center gap-4 md:gap-8">
               <div className="flex items-center gap-4 md:gap-8">
                 <span className="text-lg md:text-xl font-bold">GENR8</span>
-                <span className="text-xs md:text-sm text-[var(--muted)]">© 2025</span>
+                <span className="text-xs md:text-sm text-[var(--muted)]">© 2026</span>
               </div>
               <div className="flex gap-6 md:gap-8">
                 <a href="https://x.com/paypergenr8" target="_blank" rel="noopener noreferrer" className="text-[var(--muted)] hover:text-[var(--fg)] transition-colors text-sm md:text-base">

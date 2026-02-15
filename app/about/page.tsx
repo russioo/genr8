@@ -76,7 +76,7 @@ export default function AboutPage() {
       {/* Footer */}
       <footer className="px-6 md:px-12 py-12 border-t border-[#1a1a1a]">
         <div className="max-w-4xl mx-auto flex flex-col md:flex-row justify-between gap-6 text-sm text-[#666]">
-          <span>© 2025 GENR8</span>
+          <span>© 2026 GENR8</span>
           <div className="flex gap-6">
             <Link href="/dashboard" className="hover:text-white transition-colors">Dashboard</Link>
             <Link href="/docs" className="hover:text-white transition-colors">Docs</Link>
