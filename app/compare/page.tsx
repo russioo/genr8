@@ -272,7 +272,7 @@ export default function ComparePage() {
               <span className="text-xs md:text-sm text-[var(--muted)]">© 2025</span>
             </div>
             <div className="flex gap-6 md:gap-8">
-              <a href="https://x.com/GENR8APP" target="_blank" rel="noopener noreferrer" className="text-[var(--muted)] hover:text-[var(--fg)] transition-colors text-sm md:text-base">
+              <a href="https://x.com/paypergenr8" target="_blank" rel="noopener noreferrer" className="text-[var(--muted)] hover:text-[var(--fg)] transition-colors text-sm md:text-base">
                 Twitter
               </a>
             </div>

@@ -150,4 +150,4 @@ See [LICENSE](LICENSE) file for details.
 ## Links
 
 - Website: [genr8app.fun](https://genr8app.fun)
-- Twitter: [@GENR8APP](https://x.com/GENR8APP)
+- Twitter: [@GENR8APP](https://x.com/paypergenr8)
