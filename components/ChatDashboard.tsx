@@ -31,6 +31,8 @@ type ChatMessage = {
 type PaymentRequestMetadata = {
   type: 'paymentRequest';
   amountUSD: number;
+  originalAmount?: number;
+  discountPercent?: number;
   modelId: string;
   modelName: string;
   generationId: string;
@@ -99,6 +101,7 @@ export default function ChatDashboard() {
   const [isOptimizing, setIsOptimizing] = useState(false);
   const [optimizationStyle, setOptimizationStyle] = useState<'normal' | 'realistic' | 'ghibli' | 'drawn' | 'anime' | 'cinematic' | '3d'>('normal');
   const [showOptimizerMenu, setShowOptimizerMenu] = useState(false);
+  const [userLevel, setUserLevel] = useState<{ level: number; xp: number; xp_to_next_level: number; discount_percent: number } | null>(null);
 
   const paymentStatusByGenerationId = useMemo(() => {
     const statusMap = new Map<string, string>();
@@ -177,6 +180,29 @@ export default function ChatDashboard() {
     }
     checkBalance();
   }, [connected, publicKey, connection]);
+
+  // Fetch user level/XP
+  useEffect(() => {
+    async function fetchUserLevel() {
+      if (connected && walletAddress) {
+        try {
+          const response = await fetch(`/api/user/level?wallet=${walletAddress}`);
+          if (response.ok) {
+            const data = await response.json();
+            setUserLevel(data);
+          }
+        } catch (error) {
+          console.error('Error fetching user level:', error);
+        }
+      } else {
+        setUserLevel(null);
+      }
+    }
+    fetchUserLevel();
+    // Refresh level after generation completes (poll every 5 seconds when connected)
+    const interval = setInterval(fetchUserLevel, 5000);
+    return () => clearInterval(interval);
+  }, [connected, walletAddress]);
 
   const isDevWallet = walletAddress === DEV_WALLET;
   const hasOptimizerAccess = isDevWallet || (tokenBalance !== null && tokenBalance >= 100000);
@@ -566,6 +592,12 @@ export default function ChatDashboard() {
     // Check if this is dev wallet - skip payment request
     const isDevWallet = walletAddress === DEV_WALLET;
     
+    // Calculate price with discount
+    const discountPercent = userLevel?.discount_percent || 0;
+    const finalPrice = discountPercent > 0 
+      ? Math.max(0, model.price * (1 - discountPercent / 100))
+      : model.price;
+    
     // Create payment request (skip for dev wallet)
     const generationId = `gen-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
     const paymentMethod = defaultPaymentMethod;
@@ -576,7 +608,7 @@ export default function ChatDashboard() {
       const devMetadata: PaymentRequestMetadata = {
         type: 'paymentRequest',
         generationId,
-        amountUSD: model.price,
+        amountUSD: finalPrice,
         modelId: selectedModel,
         modelName: model.name,
         prompt: userMessage?.content || prompt.trim(),
@@ -591,7 +623,9 @@ export default function ChatDashboard() {
         content: null,
         metadata: {
           type: 'paymentRequest',
-          amountUSD: model.price,
+          amountUSD: finalPrice,
+          originalAmount: model.price,
+          discountPercent: discountPercent,
           modelId: selectedModel,
           modelName: model.name,
           generationId,
@@ -625,50 +659,49 @@ export default function ChatDashboard() {
         return null;
       }
       
+      const hasDiscount = paymentRequestMetadata.originalAmount && paymentRequestMetadata.originalAmount > paymentRequestMetadata.amountUSD;
+      const originalAmount = paymentRequestMetadata.originalAmount || paymentRequestMetadata.amountUSD;
+      
       return (
         <div className="bg-[#111] border border-[#222] rounded-2xl p-5 max-w-md">
           <div className="mb-4">
-            <h3 className="text-sm font-semibold text-white mb-1">Pay ${paymentRequestMetadata.amountUSD.toFixed(2)}</h3>
+            <div className="flex items-center gap-2 mb-1">
+              <h3 className="text-sm font-semibold text-white">Pay ${paymentRequestMetadata.amountUSD.toFixed(3)}</h3>
+              {hasDiscount && (
+                <span className="text-xs text-green-400 bg-green-500/10 px-2 py-0.5 rounded">
+                  {Math.round(((originalAmount - paymentRequestMetadata.amountUSD) / originalAmount) * 100)}% off
+                </span>
+              )}
+            </div>
+            {hasDiscount && (
+              <p className="text-xs text-[#666] line-through mb-1">${originalAmount.toFixed(3)}</p>
+            )}
             <p className="text-xs text-[#aaa]">{paymentRequestMetadata.modelName}</p>
           </div>
           
           {/* Payment method - GENR8 only */}
           <div className="mb-4">
-            <div className="w-full px-4 py-3 rounded-xl border border-[var(--accent)] bg-[var(--accent)]/10 text-left">
+            <div className="w-full px-4 py-3 rounded-xl border border-yellow-500/50 bg-yellow-500/10 text-left">
               <div className="flex items-center justify-between">
                 <div>
                   <div className="text-sm font-medium text-white flex items-center gap-2">
                     $GENR8
                   </div>
-                  <div className="text-xs text-[#aaa]">Pay with $GENR8 token</div>
+                  <div className="text-xs text-yellow-400">Waiting for token launch...</div>
                 </div>
-                <div className="w-5 h-5 rounded-full bg-[var(--accent)] flex items-center justify-center">
-                  <span className="text-[#0a0a0a] text-xs">✓</span>
+                <div className="w-5 h-5 rounded-full bg-yellow-500/20 flex items-center justify-center">
+                  <span className="text-yellow-400 text-xs">⏳</span>
                 </div>
               </div>
             </div>
           </div>
           
-          {/* Pay button */}
+          {/* Pay button - disabled until token launch */}
           <button
-            onClick={() => handlePaymentAction(paymentRequestMetadata)}
-            disabled={isPaying || !connected}
-            className={`w-full px-4 py-3 rounded-xl font-semibold text-sm transition-all ${
-              isPaying || !connected
-                ? 'bg-[#1a1a1a] text-[#666] cursor-not-allowed'
-                : 'bg-[var(--accent)] text-[#0a0a0a] hover:shadow-lg hover:shadow-[var(--accent)]/30'
-            }`}
+            disabled={true}
+            className="w-full px-4 py-3 rounded-xl font-semibold text-sm transition-all bg-[#1a1a1a] text-[#666] cursor-not-allowed"
           >
-            {isPaying ? (
-              <div className="flex items-center justify-center gap-2">
-                <div className="w-4 h-4 border-2 border-[#666] border-t-transparent rounded-full animate-spin" />
-                Processing...
-              </div>
-            ) : paymentStatus === 'processing' ? (
-              'Processing payment...'
-            ) : (
-              `Pay $${paymentRequestMetadata.amountUSD.toFixed(2)}`
-            )}
+            Waiting for token launch...
           </button>
         </div>
       );
@@ -887,7 +920,23 @@ export default function ChatDashboard() {
           {/* Sessions - Sticky header */}
           <div className="sticky top-0 z-10 pb-4 pt-4 -mt-8 -mx-6 px-6 bg-[#0a0a0a] rounded-2xl mb-6" style={{ border: '0.5px solid var(--dim)', pointerEvents: 'auto' }}>
             <div className="flex items-center justify-between mb-3">
-              <p className="text-[10px] uppercase tracking-wider text-[#666]">Sessions</p>
+              <div className="flex items-center gap-3">
+                <p className="text-[10px] uppercase tracking-wider text-[#666]">Sessions</p>
+                {userLevel && (
+                  <div className="flex items-center gap-2 px-2 py-1 bg-[#111] border border-[#222] rounded-lg">
+                    <span className="text-[10px] text-[#aaa]">Level</span>
+                    <span className="text-xs font-semibold text-[var(--accent)]">{userLevel.level}</span>
+                    <span className="text-[8px] text-[#666]">•</span>
+                    <span className="text-[10px] text-[#aaa]">{userLevel.xp} XP</span>
+                    {userLevel.discount_percent > 0 && (
+                      <>
+                        <span className="text-[8px] text-[#666]">•</span>
+                        <span className="text-[10px] text-green-400">{userLevel.discount_percent}% off</span>
+                      </>
+                    )}
+                  </div>
+                )}
+              </div>
               <button 
                 onClick={handleNewChat}
                 className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-[#111] border border-[#222] text-[#aaa] hover:text-white hover:border-[var(--accent)] hover:bg-[#1a1a1a] transition-all group"
@@ -1097,9 +1146,24 @@ export default function ChatDashboard() {
                               </span>
                             )}
                           </div>
-                          {!isComingSoon && (
-                            <span className={`font-mono text-xs ${selectedModel === model.id ? 'text-[#0a0a0a]/70' : 'text-[var(--accent)]'}`}>${model.price.toFixed(2)}</span>
-                          )}
+                          {!isComingSoon && (() => {
+                            const discountPercent = userLevel?.discount_percent || 0;
+                            const finalPrice = discountPercent > 0 
+                              ? Math.max(0, model.price * (1 - discountPercent / 100))
+                              : model.price;
+                            return (
+                              <div className="flex flex-col items-end">
+                                <span className={`font-mono text-xs ${selectedModel === model.id ? 'text-[#0a0a0a]/70' : 'text-[var(--accent)]'}`}>
+                                  ${finalPrice.toFixed(3)}
+                                </span>
+                                {discountPercent > 0 && (
+                                  <span className="text-[8px] text-green-400 line-through opacity-60">
+                                    ${model.price.toFixed(3)}
+                                  </span>
+                                )}
+                              </div>
+                            );
+                          })()}
                         </button>
                       );
                     })}
